@@ -15,19 +15,9 @@
 // │                                                                                 │
 // └─────────────────────────────────────────────────────────────────────────────────┘
 
-use std::io::{self, Write};
+mod tty;
+mod termios;
+mod guard;
 
-use gridlock::TerminalGuard;
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let guard = TerminalGuard::acquire().expect("Failed to acquire terminal.");
-    let snapshot = guard.snapshot();
-
-    println!("Terminal acquired.");
-
-    let mut out = io::stdout().lock();
-    snapshot.dump_termios(&mut out).expect("Failed to dump termios.");
-    out.flush().ok();
-
-    Ok(())
-}
+pub use tty::{TerminalError, TerminalSnapshot};
+pub use guard::TerminalGuard;
