@@ -76,7 +76,7 @@ impl TerminalGuard {
     pub fn snapshot(&self) -> &TerminalSnapshot {
         self.snapshot
             .as_ref()
-            .expect("TerminalGuard::snapshot called after release")
+            .expect("guard.snapshot() called after release!")
     }
 
     /// Gets the controlling tty fd from the snapshot, useful for subsequent `tcsetattr` calls.
