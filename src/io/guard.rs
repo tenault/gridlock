@@ -1,13 +1,30 @@
+// ┌─────────────────────────────────────────────────────────────────────────────────┐
+// │                                                                                 │
+// │    ┏━━━━━━━┓ ┏━━━━━━━┓ ┏━┓ ┏━━━━━━━┓ ┏━┓       ┏━━━━━━━┓ ┏━━━━━━━┓ ┏━┓ ┏━━━┓    │
+// │    ┃ ┏━━━━━┛ ┃ ┏━━━┓ ┃ ┃ ┃ ┗━┓ ┏━┓ ┃ ┃ ┃       ┃ ┏━━━┓ ┃ ┃ ┏━━━━━┛ ┃ ┃ ┃ ┏━┛    │
+// │    ┃ ┃ ┏━━━┓ ┃ ┗━━━┛ ┃ ┃ ┃   ┃ ┃ ┃ ┃ ┃ ┃       ┃ ┃   ┃ ┃ ┃ ┃       ┃ ┗━┛ ┗━┓    │
+// │    ┃ ┃ ┗━┓ ┃ ┃ ┏━┓ ┏━┛ ┃ ┃   ┃ ┃ ┃ ┃ ┃ ┃       ┃ ┃   ┃ ┃ ┃ ┃       ┃ ┏━━━┓ ┃    │
+// │    ┃ ┗━━━┛ ┃ ┃ ┃ ┃ ┗━┓ ┃ ┃ ┏━┛ ┗━┛ ┃ ┃ ┗━━━━━┓ ┃ ┗━━━┛ ┃ ┃ ┗━━━━━┓ ┃ ┃   ┃ ┃    │
+// │    ┗━━━━━━━┛ ┗━┛ ┗━━━┛ ┗━┛ ┗━━━━━━━┛ ┗━━━━━━━┛ ┗━━━━━━━┛ ┗━━━━━━━┛ ┗━┛   ┗━┛    │
+// │                                                                                 │
+// │                   copyright (c) 2026 Malakai Smith (@tenault)                   │
+// │                                                                                 │
+// │       This Source Code Form is subject to the terms of the Mozilla Public       │
+// │       License, v. 2.0. If a copy of the MPL was not distributed with this       │
+// │            file, You can obtain one at https://mozilla.org/MPL/2.0.             │
+// │                                                                                 │
+// └─────────────────────────────────────────────────────────────────────────────────┘
+
 use std::os::unix::io::RawFd;
 
 use super::tty::{self, TerminalError, TerminalSnapshot};
 use super::termios;
 
-// ┌─────────────────────┐
-// │ Terminal RAII Guard │
-// └─────────────────────┘
+// ┌─────────────┐ ┌╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴┐
+// │    TYPES    │    // terminal RAII guard
+// └─────────────┘ └╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶┘
 
-/// Owns the terminal snapshot and guarantees restoration on drop.
+/// Owns the terminal snapshot and guarantees state restoration on drop.
 ///
 /// Construct with [`TerminalGuard::acquire`]. While the guard is alive, you can call
 /// [`TerminalGuard::snapshot`] to inspect the original state, or [`TerminalGuard::tty_fd`] to get
@@ -17,6 +34,9 @@ pub struct TerminalGuard {
 }
 
 impl TerminalGuard {
+
+    // ───── constructor ─────
+
     /// Acquires the current terminal state.
     ///
     /// Opens `/dev/tty` instead of assuming `fd 0` is a terminal, so this succeeds even when
@@ -50,18 +70,24 @@ impl TerminalGuard {
         })
     }
 
-    /// Borrows the snapshot, panics if guard was already released.
+    // ───── utility ─────
+
+    /// Borrows the snapshot, panics if the guard was already released.
     pub fn snapshot(&self) -> &TerminalSnapshot {
         self.snapshot
             .as_ref()
             .expect("TerminalGuard::snapshot called after release")
     }
 
-    /// The file descriptor to use for all subsequent `tcgetattr`/`tcsetattr` calls.
+    /// Gets the controlling tty fd from the snapshot, useful for subsequent `tcsetattr` calls.
     pub fn tty_fd(&self) -> RawFd { self.snapshot().tty_fd }
+
+    // ───── cleanup ─────
 
     /// Explicitly restores the terminal and releases the guard early.
     pub fn release(mut self) -> Result<(), TerminalError> { self.restore() }
+
+    // ╶╶╶╶╶ internal ╴╴╴╴╴
 
     fn restore(&mut self) -> Result<(), TerminalError> {
         if let Some(snap) = self.snapshot.take() {
