@@ -15,19 +15,33 @@
 // │                                                                                 │
 // └─────────────────────────────────────────────────────────────────────────────────┘
 
-use std::io::{self, Write};
+use std::io;
+use std::os::unix::io::RawFd;
 
-use gridlock::TerminalGuard;
+use super::tty::TerminalError;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let guard = TerminalGuard::acquire().expect("Failed to acquire terminal.");
-    let snapshot = guard.snapshot();
+// ┌───────────────┐
+// │    UTILITY    │
+// └───────────────┘
 
-    println!("Terminal acquired.");
+/// Gets the terminal state via `tcgetattr`.
+///
+/// Does __not__ close the tty fd on error. Caller is responsible for cleanup.
+pub(crate) fn get_termios(fd: RawFd) -> Result<libc::termios, TerminalError> {
+    let mut t: libc::termios = unsafe { std::mem::zeroed() };
+    let rc = unsafe { libc::tcgetattr(fd, &mut t) };
+    if rc != 0 { return Err(TerminalError::BadGetAttr(io::Error::last_os_error())); }
 
-    let mut out = io::stdout().lock();
-    snapshot.dump_termios(&mut out).expect("Failed to dump termios.");
-    out.flush().ok();
+    Ok(t)
+}
+
+/// Sets the termios via `tcsetattr`.
+///
+/// Does __not__ close the tty fd on error. Caller is responsible for cleanup.
+pub(crate) fn set_termios(fd: RawFd, t: &libc::termios) -> Result<(), TerminalError> {
+    if unsafe { libc::tcsetattr(fd, libc::TCSANOW, t) } != 0 {
+        return Err(TerminalError::BadSetAttr(io::Error::last_os_error()));
+    }
 
     Ok(())
 }
