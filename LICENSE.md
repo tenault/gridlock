@@ -1,4 +1,4 @@
-<!-- SPDX-ID : MPL-2.0 -->
+<!-- spdx-id : MPL-2.0 -->
 
 <details>
 <summary>Table of Contents</summary>
@@ -57,15 +57,15 @@
 ### 1. Definitions
 
 <dl>
-    <dt><h4>1.1. Contributor</h4></dt>
+    <dt><h4>1.1. <ins>Contributor</ins></h4></dt>
     <dd>means each individual or legal entity that creates, contributes to the creation of, or owns Covered Software.</dd>
-    <dt><h4>1.2. Contributor Version</h4></dt>
+    <dt><h4>1.2. <ins>Contributor Version</ins></h4></dt>
     <dd>means the combination of the Contributions of others (if any) used by a Contributor and that particular Contributor's Contribution.</dd>
-    <dt><h4>1.3. Contribution</h4></dt>
+    <dt><h4>1.3. <ins>Contribution</ins></h4></dt>
     <dd>means Covered Software of a particular Contributor.</dd>
-    <dt><h4>1.4. Covered Software</h4></dt>
+    <dt><h4>1.4. <ins>Covered Software</ins></h4></dt>
     <dd>means Source Code Form to which the initial Contributor has attached the notice in <a href="#exhibit-a--source-code-form-license-notice">Exhibit A</a>, the Executable Form of such Source Code Form, and Modifications of such Source Code Form, in each case including portions thereof.</dd>
-    <dt><h4>1.5. Incompatible With Secondary Licenses</h4></dt>
+    <dt><h4>1.5. <ins>Incompatible With Secondary Licenses</ins></h4></dt>
     <dd>
         <p>means</p>
         <ol type="a">
@@ -73,15 +73,15 @@
             <li><p>that the Covered Software was made available under the terms of version 1.1 or earlier of the License, but not also under the terms of a Secondary License.</p></li>
         </ol>
     </dd>
-    <dt><h4>1.6. Executable Form</h4></dt>
+    <dt><h4>1.6. <ins>Executable Form</ins></h4></dt>
     <dd>means any form of the work other than Source Code Form.</dd>
-    <dt><h4>1.7. Larger Work</h4></dt>
+    <dt><h4>1.7. <ins>Larger Work</ins></h4></dt>
     <dd>means a work that combines Covered Software with other material, in a separate file or files, that is not Covered Software.</dd>
-    <dt><h4>1.8. License</h4></dt>
+    <dt><h4>1.8. <ins>License</ins></h4></dt>
     <dd>means this document.</dd>
-    <dt><h4>1.9. Licensable</h4></dt>
+    <dt><h4>1.9. <ins>Licensable</ins></h4></dt>
     <dd>means having the right to grant, to the maximum extent possible, whether at the time of the initial grant or subsequently, any and all of the rights conveyed by this License.</dd>
-    <dt><h4>1.10. Modifications</h4></dt>
+    <dt><h4>1.10. <ins>Modifications</ins></h4></dt>
     <dd>
         <p>means any of the following:</p>
         <ol type="a">
@@ -91,9 +91,9 @@
     </dd>
     <dt><h4>1.11. <ins>Patent Claims</ins> of a Contributor</h4></dt>
     <dd>means any patent claim(s), including without limitation, method, process, and apparatus claims, in any patent Licensable by such Contributor that would be infringed, but for the grant of the License, by the making, using, selling, offering for sale, having made, import, or transfer of either its Contributions or its Contributor Version.</dd>
-    <dt><h4>1.12. Secondary License</h4></dt>
+    <dt><h4>1.12. <ins>Secondary License</ins></h4></dt>
     <dd>means either the <a href="https://www.gnu.org/licenses/old-licenses/gpl-2.0.html">GNU General Public License, Version 2.0</a>, the <a href="https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">GNU Lesser General Public License, Version 2.1</a>, the <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU Affero General Public License, Version 3.0</a>, or any later versions of those licenses.</dd>
-    <dt><h4>1.13. Source Code Form</h4></dt>
+    <dt><h4>1.13. <ins>Source Code Form</ins></h4></dt>
     <dd>means the form of the work preferred for making modifications.</dd>
     <dt><h4>1.14. <ins>You</ins> (or <ins>Your</ins>)</h4></dt>
     <dd>
@@ -317,7 +317,7 @@ If You choose to distribute Source Code Form that is Incompatible With Secondary
 ```
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
-file, You can obtain one at https://mozilla.org/MPL/2.0
+file, You can obtain one at https://mozilla.org/MPL/2.0.
 ```
 
 > [!TIP]
@@ -325,11 +325,11 @@ file, You can obtain one at https://mozilla.org/MPL/2.0
 
 You may add additional accurate notices of copyright ownership.
 
-## Exhibit B — <ins>Incompatible With Secondary Licenses</ins> Notice
+## Exhibit B — Incompatible With Secondary Licenses Notice
 
 ```
 This Source Code Form is "Incompatible With Secondary Licenses", as
-defined by the Mozilla Public License, v. 2.0
+defined by the Mozilla Public License, v. 2.0.
 ```
 
 [#]: #mozilla-public-license-20
@@ -378,4 +378,3 @@ defined by the Mozilla Public License, v. 2.0
 [10.4]: #104-distributing-source-code-form-that-is-incompatible-with-secondary-licenses
 [A]: #exhibit-a--source-code-form-license-notice
 [B]: #exhibit-b--incompatible-with-secondary-licenses-notice
-
