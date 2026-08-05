@@ -25,7 +25,7 @@ use std::os::unix::io::RawFd;
 /// An immutable snapshot of the terminal's state at acquistion time.
 #[derive(Debug, Clone)]
 pub struct TerminalSnapshot {
-    pub orig_termios: libc::termios,
+    pub termios: libc::termios,
     pub ws_rows: u16,
     pub ws_cols: u16,
     pub tty_fd: RawFd,
@@ -34,7 +34,7 @@ pub struct TerminalSnapshot {
 impl TerminalSnapshot {
     /// Pretty-prints the captured termios flags to a writer (for logging, etc)
     pub fn dump_termios<W: Write>(&self, w: &mut W) -> io::Result<()> {
-        let t = &self.orig_termios;
+        let t = &self.termios;
         writeln!(w, "----[ terminal snapshot ]----------------")?;
         writeln!(w, " -> tty_fd  : {}", self.tty_fd)?;
         writeln!(w, " -> winsize : {} cols x {} rows", self.ws_cols, self.ws_rows)?;
@@ -99,6 +99,8 @@ pub enum TerminalError {
     BadGetAttr(io::Error),
     /// `tcsetattr` failed on the controlling tty.
     BadSetAttr(io::Error),
+    /// Signal handler failed during install.
+    BadInstallHandler { signal: libc::c_int, source: io::Error },
 }
 
 impl std::fmt::Display for TerminalError {
@@ -108,6 +110,14 @@ impl std::fmt::Display for TerminalError {
             Self::BadWinSize(e) => write!(f, "ioctl(TIOCGWINSZ) failed: {e}"),
             Self::BadGetAttr(e) => write!(f, "tcgetattr failed: {e}"),
             Self::BadSetAttr(e) => write!(f, "tcsetattr failed: {e}"),
+            Self::BadInstallHandler { signal, source } => {
+                let name = match *signal {
+                    libc::SIGINT => "SIGINT",
+                    libc::SIGTERM => "SIGTERM",
+                    _ => "unknown",
+                };
+                write!(f, "Failed to install handler for {name}: {source}")
+            },
         }
     }
 }
