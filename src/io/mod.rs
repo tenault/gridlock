@@ -15,9 +15,10 @@
 // │                                                                                 │
 // └─────────────────────────────────────────────────────────────────────────────────┘
 
-mod tty;
-mod termios;
 mod guard;
+mod signal;
+mod termios;
+mod tty;
 
 pub use tty::{TerminalError, TerminalSnapshot};
 pub use guard::TerminalGuard;
