@@ -18,9 +18,10 @@
 use std::io::{self, Write};
 use std::os::unix::io::RawFd;
 
-// ╭─────────────╮ ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-// │    TYPES    │    // terminal snapshot
-// ╰─────────────╯ ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+
+// ╭─────────────────────────╮
+// │    TERMINAL SNAPSHOT    │
+// ╰─────────────────────────╯
 
 /// An immutable snapshot of the terminal's state at acquistion time.
 #[derive(Debug, Clone)]
@@ -84,9 +85,9 @@ pub(crate) fn query_winsize(fd: RawFd) -> Result<(u16, u16), TerminalError> {
 }
 
 
-// ╭──────────────╮ ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-// │    ERRORS    │    // terminal error
-// ╰──────────────╯ ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+// ╭──────────────╮
+// │    ERRORS    │
+// ╰──────────────╯
 
 /// Errors that can arise during terminal state acquisition.
 #[derive(Debug)]
