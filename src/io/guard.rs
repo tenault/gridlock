@@ -1,4 +1,4 @@
-// ┌─────────────────────────────────────────────────────────────────────────────────┐
+// ╭─────────────────────────────────────────────────────────────────────io/guard.rs─╮
 // │                                                                                 │
 // │    ┏━━━━━━━┓ ┏━━━━━━━┓ ┏━┓ ┏━━━━━━━┓ ┏━┓       ┏━━━━━━━┓ ┏━━━━━━━┓ ┏━┓ ┏━━━┓    │
 // │    ┃ ┏━━━━━┛ ┃ ┏━━━┓ ┃ ┃ ┃ ┗━┓ ┏━┓ ┃ ┃ ┃       ┃ ┏━━━┓ ┃ ┃ ┏━━━━━┛ ┃ ┃ ┃ ┏━┛    │
@@ -13,7 +13,7 @@
 // │       License, v. 2.0. If a copy of the MPL was not distributed with this       │
 // │            file, You can obtain one at https://mozilla.org/MPL/2.0.             │
 // │                                                                                 │
-// └─────────────────────────────────────────────────────────────────────────────────┘
+// ╰─────────────────────────────────────────────────────────────────────────────────╯
 
 use std::os::unix::io::RawFd;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -22,12 +22,15 @@ use super::signal;
 use super::termios;
 use super::tty::{self, TerminalError, TerminalSnapshot};
 
+/// Global flag to enforce guard singleton.
+static GUARD_ACTIVE: AtomicBool = AtomicBool::new(false);
+
 /// Idempotency flag to ensure single restore across all paths.
 static RESTORED: AtomicBool = AtomicBool::new(false);
 
-// ┌─────────────┐ ┌╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴┐
+// ╭─────────────╮ ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
 // │    TYPES    │    // terminal RAII guard
-// └─────────────┘ └╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶┘
+// ╰─────────────╯ ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
 /// Owns the terminal snapshot and guarantees state restoration on drop.
 ///
@@ -47,6 +50,9 @@ impl TerminalGuard {
     /// Opens `/dev/tty` instead of assuming `fd 0` is a terminal, so this succeeds even when
     /// `stdin` is redirected.
     pub fn acquire() -> Result<Self, TerminalError> {
+        // enforce singleton
+        if GUARD_ACTIVE.swap(true, Ordering::AcqRel) { return Err(TerminalError::ExistingGuard); }
+
         let tty_fd = tty::open_tty()?;
 
         let termios = match termios::get_termios(tty_fd) {
@@ -65,6 +71,7 @@ impl TerminalGuard {
             }
         };
 
+        // setup handlers for SIGINT, SIGTERM, etc
         signal::install_handlers()?;
 
         let snapshot = TerminalSnapshot {
@@ -79,6 +86,7 @@ impl TerminalGuard {
         // we intentionally leak a clone so that the pointer remains valid even if the guard is
         // dropped mid-panic before the signal fires
         signal::store_snapshot(Box::into_raw(Box::new(snapshot.clone())));
+        RESTORED.store(false, Ordering::Release);
 
         Ok(Self {
             snapshot: Some(snapshot),
@@ -130,6 +138,7 @@ impl TerminalGuard {
         }
 
         signal::uninstall_handlers();
+        GUARD_ACTIVE.store(false, Ordering::Release);
 
         return restore_err;
     }
@@ -140,10 +149,8 @@ impl Drop for TerminalGuard {
 }
 
 
-// ┌───────────────┐
+// ╭───────────────╮
 // │    UTILITY    │
-// └───────────────┘
+// ╰───────────────╯
 
-pub(crate) fn is_restored() -> bool { RESTORED.load(Ordering::Acquire) }
 pub(crate) fn mark_restored() -> bool { RESTORED.swap(true, Ordering::AcqRel) }
-pub(crate) fn reset_restored() { RESTORED.store(false, Ordering::Release) }
