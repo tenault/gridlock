@@ -20,6 +20,7 @@ use std::os::unix::io::RawFd;
 
 use super::tty::TerminalError;
 
+
 // ╭───────────────╮
 // │    UTILITY    │
 // ╰───────────────╯
