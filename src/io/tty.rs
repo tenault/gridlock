@@ -1,4 +1,4 @@
-// ┌─────────────────────────────────────────────────────────────────────────────────┐
+// ╭───────────────────────────────────────────────────────────────────────io/tty.rs─╮
 // │                                                                                 │
 // │    ┏━━━━━━━┓ ┏━━━━━━━┓ ┏━┓ ┏━━━━━━━┓ ┏━┓       ┏━━━━━━━┓ ┏━━━━━━━┓ ┏━┓ ┏━━━┓    │
 // │    ┃ ┏━━━━━┛ ┃ ┏━━━┓ ┃ ┃ ┃ ┗━┓ ┏━┓ ┃ ┃ ┃       ┃ ┏━━━┓ ┃ ┃ ┏━━━━━┛ ┃ ┃ ┃ ┏━┛    │
@@ -13,14 +13,14 @@
 // │       License, v. 2.0. If a copy of the MPL was not distributed with this       │
 // │            file, You can obtain one at https://mozilla.org/MPL/2.0.             │
 // │                                                                                 │
-// └─────────────────────────────────────────────────────────────────────────────────┘
+// ╰─────────────────────────────────────────────────────────────────────────────────╯
 
 use std::io::{self, Write};
 use std::os::unix::io::RawFd;
 
-// ┌─────────────┐ ┌╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴┐
+// ╭─────────────╮ ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
 // │    TYPES    │    // terminal snapshot
-// └─────────────┘ └╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶┘
+// ╰─────────────╯ ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
 /// An immutable snapshot of the terminal's state at acquistion time.
 #[derive(Debug, Clone)]
@@ -57,9 +57,9 @@ impl TerminalSnapshot {
 }
 
 
-// ┌───────────────┐
+// ╭───────────────╮
 // │    UTILITY    │
-// └───────────────┘
+// ╰───────────────╯
 
 /// Resolves the controlling tty fd via `/dev/tty`.
 pub(crate) fn open_tty() -> Result<RawFd, TerminalError> {
@@ -84,9 +84,9 @@ pub(crate) fn query_winsize(fd: RawFd) -> Result<(u16, u16), TerminalError> {
 }
 
 
-// ┌──────────────┐ ┌╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴┐
+// ╭──────────────╮ ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
 // │    ERRORS    │    // terminal error
-// └──────────────┘ └╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶┘
+// ╰──────────────╯ ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
 /// Errors that can arise during terminal state acquisition.
 #[derive(Debug)]
@@ -101,6 +101,8 @@ pub enum TerminalError {
     BadSetAttr(io::Error),
     /// Signal handler failed during install.
     BadInstallHandler { signal: libc::c_int, source: io::Error },
+    /// `::acquire()` failed due to existing guard.
+    ExistingGuard,
 }
 
 impl std::fmt::Display for TerminalError {
@@ -118,6 +120,7 @@ impl std::fmt::Display for TerminalError {
                 };
                 write!(f, "Failed to install handler for {name}: {source}")
             },
+            Self::ExistingGuard => write!(f, "acquire() failed due to existing guard."),
         }
     }
 }
