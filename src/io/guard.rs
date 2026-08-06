@@ -1,4 +1,4 @@
-// ┌─────────────────────────────────────────────────────────────────────────────────┐
+// ╭─────────────────────────────────────────────────────────────────────io/guard.rs─╮
 // │                                                                                 │
 // │    ┏━━━━━━━┓ ┏━━━━━━━┓ ┏━┓ ┏━━━━━━━┓ ┏━┓       ┏━━━━━━━┓ ┏━━━━━━━┓ ┏━┓ ┏━━━┓    │
 // │    ┃ ┏━━━━━┛ ┃ ┏━━━┓ ┃ ┃ ┃ ┗━┓ ┏━┓ ┃ ┃ ┃       ┃ ┏━━━┓ ┃ ┃ ┏━━━━━┛ ┃ ┃ ┃ ┏━┛    │
@@ -13,16 +13,28 @@
 // │       License, v. 2.0. If a copy of the MPL was not distributed with this       │
 // │            file, You can obtain one at https://mozilla.org/MPL/2.0.             │
 // │                                                                                 │
-// └─────────────────────────────────────────────────────────────────────────────────┘
+// ╰─────────────────────────────────────────────────────────────────────────────────╯
 
+use std::marker::PhantomData;
 use std::os::unix::io::RawFd;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use super::tty::{self, TerminalError, TerminalSnapshot};
+use super::signal;
 use super::termios;
+use super::tty::{self, TerminalError, TerminalSnapshot};
 
-// ┌─────────────┐ ┌╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴┐
-// │    TYPES    │    // terminal RAII guard
-// └─────────────┘ └╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶┘
+
+// ╭────────────────╮
+// │    CONTROLS    │
+// ╰────────────────╯
+
+/// Idempotency flag, enforces guard singleton and ensures a single restore across all paths.
+static GUARD_ALIVE: AtomicBool = AtomicBool::new(false);
+
+
+// ╭───────────────────────────╮
+// │    TERMINAL RAII GUARD    │
+// ╰───────────────────────────╯
 
 /// Owns the terminal snapshot and guarantees state restoration on drop.
 ///
@@ -31,6 +43,7 @@ use super::termios;
 /// the file descriptor for subsequent `tcsetattr` calls.
 pub struct TerminalGuard {
     snapshot: Option<TerminalSnapshot>,
+    _marker: PhantomData<*mut ()>, // constrains !Send + !Sync
 }
 
 impl TerminalGuard {
@@ -42,9 +55,12 @@ impl TerminalGuard {
     /// Opens `/dev/tty` instead of assuming `fd 0` is a terminal, so this succeeds even when
     /// `stdin` is redirected.
     pub fn acquire() -> Result<Self, TerminalError> {
+        // enforce singleton
+        if GUARD_ALIVE.load(Ordering::Acquire) { return Err(TerminalError::ExistingGuard); }
+
         let tty_fd = tty::open_tty()?;
 
-        let orig_termios = match termios::get_termios(tty_fd) {
+        let termios = match termios::get_termios(tty_fd) {
             Ok(t) => t,
             Err(e) => {
                 unsafe { libc::close(tty_fd); }
@@ -60,13 +76,28 @@ impl TerminalGuard {
             }
         };
 
+        // setup handlers for SIGINT, SIGTERM, etc
+        signal::install_handlers()?;
+
+        // all potential errors thrown, guard can be built
+        GUARD_ALIVE.store(true, Ordering::Release);
+
+        let snapshot = TerminalSnapshot {
+            termios,
+            ws_rows: rows,
+            ws_cols: cols,
+            tty_fd
+        };
+
+        // store the snapshot pointer globally for signal handlers
+        //
+        // we intentionally leak a clone so that the pointer remains valid even if the guard is
+        // dropped mid-panic before the signal fires
+        signal::store_snapshot(Box::into_raw(Box::new(snapshot.clone())));
+
         Ok(Self {
-            snapshot: Some(TerminalSnapshot {
-                orig_termios,
-                ws_rows: rows,
-                ws_cols: cols,
-                tty_fd,
-            }),
+            snapshot: Some(snapshot),
+            _marker: PhantomData,
         })
     }
 
@@ -76,7 +107,7 @@ impl TerminalGuard {
     pub fn snapshot(&self) -> &TerminalSnapshot {
         self.snapshot
             .as_ref()
-            .expect("TerminalGuard::snapshot called after release")
+            .expect("guard.snapshot() called after release!")
     }
 
     /// Gets the controlling tty fd from the snapshot, useful for subsequent `tcsetattr` calls.
@@ -85,21 +116,53 @@ impl TerminalGuard {
     // ───── cleanup ─────
 
     /// Explicitly restores the terminal and releases the guard early.
-    pub fn release(mut self) -> Result<(), TerminalError> { self.restore() }
+    pub fn release(mut self) -> Result<(), TerminalError> {
+        let err = self.restore();
+        std::mem::forget(self); // prevents double-free since we took ownership
+        return err;
+    }
 
     // ╶╶╶╶╶ internal ╴╴╴╴╴
 
     fn restore(&mut self) -> Result<(), TerminalError> {
-        if let Some(snap) = self.snapshot.take() {
-            let err = termios::set_termios(snap.tty_fd, &snap.orig_termios);
-            unsafe { libc::close(snap.tty_fd); }
-            return err;
+        // check if already restored (idempotent)
+        if !GUARD_ALIVE.swap(false, Ordering::AcqRel) { return Ok(()); }
+
+        // restore terminal state
+        let restore_err = if let Some(snapshot) = self.snapshot.take() {
+            let err = termios::set_termios(snapshot.tty_fd, &snapshot.termios);
+            unsafe { libc::close(snapshot.tty_fd); }
+            err
+        } else {
+            Ok(())
+        };
+
+        // cleanup global snapshot pointer and reclaim leak
+        let snapshot_ptr = signal::clear_snapshot();
+        if !snapshot_ptr.is_null() {
+            // if signal handler claimed snapshot, this is a safe no-op
+            // otherwise, we free what we leaked during ::acquire()
+            unsafe { let _ = Box::from_raw(snapshot_ptr); }
         }
 
-        Ok(())
+        // restore default signal dispositions
+        signal::uninstall_handlers();
+
+        return restore_err;
     }
 }
 
 impl Drop for TerminalGuard {
     fn drop(&mut self) { let _ = self.restore(); }
 }
+
+
+// ╭───────────────╮
+// │    UTILITY    │
+// ╰───────────────╯
+
+/// Explicitly marks `GUARD_ALIVE = false` for external idempotency (used by `signal_handler()`).
+///
+/// Does __not__ release the guard itself. Caller must perform manual cleanup, or accept unsafe loss
+/// of singleton enforcement.
+pub(crate) fn kill() -> bool { GUARD_ALIVE.swap(false, Ordering::AcqRel) }
