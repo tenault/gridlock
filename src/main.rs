@@ -15,19 +15,23 @@
 // │                                                                                 │
 // └─────────────────────────────────────────────────────────────────────────────────╯
 
-use std::io::{self, Write};
+use std::io::{self, Read};
 
 use gridlock::TerminalGuard;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let guard = TerminalGuard::acquire().expect("Failed to acquire terminal.");
-    let snapshot = guard.snapshot();
+    let _guard = TerminalGuard::acquire().expect("Failed to acquire terminal.");
 
-    println!("Terminal acquired.");
+    let mut stdin = io::stdin().lock();
+    let mut buf = [0u8; 16];
 
-    let mut out = io::stdout().lock();
-    snapshot.dump_termios(&mut out).expect("Failed to dump termios.");
-    out.flush().ok();
-
-    Ok(())
+    loop {
+        match stdin.read(&mut buf) {
+            Ok(n) if n > 0 => {
+                for &b in &buf[..n] { print!{"0x{:02x} ", b}; }
+                print!("\r\n");
+            }
+            _ => {}
+        }
+    }
 }
