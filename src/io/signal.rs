@@ -59,6 +59,7 @@ extern "C" fn signal_handler(signal: libc::c_int) {
             let snapshot = &*snapshot_ptr;
 
             // restore terminal state (async-signal-safe ops only)
+            libc::tcflush(snapshot.tty_fd, libc::TCIFLUSH); // drop input queue
             libc::tcsetattr(snapshot.tty_fd, libc::TCSANOW, &snapshot.termios);
             libc::close(snapshot.tty_fd);
 
