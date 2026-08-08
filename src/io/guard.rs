@@ -16,7 +16,6 @@
 // ╰─────────────────────────────────────────────────────────────────────────────────╯
 
 use std::marker::PhantomData;
-use std::os::unix::io::RawFd;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::signal;
@@ -50,7 +49,7 @@ impl TerminalGuard {
 
     // ───── constructor ─────
 
-    /// Acquires the current terminal state.
+    /// Acquires the current terminal and initializes it for client control.
     ///
     /// Opens `/dev/tty` instead of assuming `fd 0` is a terminal, so this succeeds even when
     /// `stdin` is redirected.
@@ -79,7 +78,10 @@ impl TerminalGuard {
         // setup handlers for SIGINT, SIGTERM, etc
         signal::install_handlers()?;
 
-        // all potential errors thrown, guard can be built
+        // enter a known raw mode
+        termios::uncook(tty_fd, &termios)?;
+
+        // all potential errors thrown, guard can now be built
         GUARD_ALIVE.store(true, Ordering::Release);
 
         let snapshot = TerminalSnapshot {
@@ -107,11 +109,8 @@ impl TerminalGuard {
     pub fn snapshot(&self) -> &TerminalSnapshot {
         self.snapshot
             .as_ref()
-            .expect("guard.snapshot() called after release!")
+            .expect("snapshot() called after release!")
     }
-
-    /// Gets the controlling tty fd from the snapshot, useful for subsequent `tcsetattr` calls.
-    pub fn tty_fd(&self) -> RawFd { self.snapshot().tty_fd }
 
     // ───── cleanup ─────
 
