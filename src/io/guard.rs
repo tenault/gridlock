@@ -22,8 +22,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::screen;
 use super::signal;
-use super::termios;
-use super::tty::{self, TerminalError, TerminalSnapshot};
+use super::tty::{TTY, TerminalError, TerminalSnapshot};
 
 
 // ╭────────────────╮
@@ -34,9 +33,9 @@ use super::tty::{self, TerminalError, TerminalSnapshot};
 static GUARD_ALIVE: AtomicBool = AtomicBool::new(false);
 
 
-// ╭───────────────────────────╮
-// │    TERMINAL RAII GUARD    │
-// ╰───────────────────────────╯
+// ╭──────────────────────╮
+// │    TERMINAL GUARD    │
+// ╰──────────────────────╯
 
 /// Owns the terminal snapshot and guarantees state restoration on drop.
 ///
@@ -44,7 +43,8 @@ static GUARD_ALIVE: AtomicBool = AtomicBool::new(false);
 /// [`TerminalGuard::snapshot`] to inspect the original state, or [`TerminalGuard::tty_fd`] to get
 /// the file descriptor for subsequent `tcsetattr` calls.
 pub struct TerminalGuard {
-    snapshot: Option<TerminalSnapshot>,
+    tty: TTY,
+    snapshot: TerminalSnapshot,
     _marker: PhantomData<*mut ()>, // constrains !Send + !Sync
 }
 
@@ -60,20 +60,20 @@ impl TerminalGuard {
         // enforce singleton
         if GUARD_ALIVE.load(Ordering::Acquire) { return Err(TerminalError::ExistingGuard); }
 
-        let tty_fd = tty::open_tty()?;
+        let tty = TTY::open()?;
 
-        let termios = match termios::get_termios(tty_fd) {
+        let termios = match tty.get_termios() {
             Ok(t) => t,
             Err(e) => {
-                unsafe { libc::close(tty_fd); }
+                unsafe { libc::close(tty.fd); }
                 return Err(e);
             }
         };
 
-        let (rows, cols) = match tty::query_winsize(tty_fd) {
+        let (rows, cols) = match tty.query_winsize() {
             Ok(size) => size,
             Err(e) => {
-                unsafe { libc::close(tty_fd); }
+                unsafe { libc::close(tty.fd); }
                 return Err(e);
             }
         };
@@ -82,8 +82,8 @@ impl TerminalGuard {
         signal::install_handlers()?;
 
         // enter asb with known raw mode
-        termios::uncook(tty_fd, &termios)?;
-        screen::enter_asb(tty_fd);
+        tty.uncook()?;
+        screen::enter_asb(tty.fd);
 
         // all potential errors thrown, guard can now be built
         GUARD_ALIVE.store(true, Ordering::Release);
@@ -92,7 +92,7 @@ impl TerminalGuard {
             termios,
             ws_rows: rows,
             ws_cols: cols,
-            tty_fd
+            tty_fd: tty.fd,
         };
 
         // store the snapshot pointer globally for signal handlers
@@ -102,18 +102,10 @@ impl TerminalGuard {
         signal::store_snapshot(Box::into_raw(Box::new(snapshot.clone())));
 
         Ok(Self {
-            snapshot: Some(snapshot),
+            tty,
+            snapshot,
             _marker: PhantomData,
         })
-    }
-
-    // ───── utility ─────
-
-    /// Borrows the snapshot, panics if the guard was already released.
-    pub fn snapshot(&self) -> &TerminalSnapshot {
-        self.snapshot
-            .as_ref()
-            .expect("snapshot() called after release!")
     }
 
     // ───── cleanup ─────
@@ -121,7 +113,7 @@ impl TerminalGuard {
     /// Explicitly restores the terminal and releases the guard early.
     pub fn release(mut self) -> Result<(), TerminalError> {
         let err = self.restore();
-        std::mem::forget(self); // prevents double-free since we took ownership
+        std::mem::forget(self); // prevents double-drop since we took ownership
         return err;
     }
 
@@ -131,33 +123,27 @@ impl TerminalGuard {
         // check if already restored (idempotent)
         if !GUARD_ALIVE.swap(false, Ordering::AcqRel) { return Ok(()); }
 
-        // restore terminal state
-        let restore_err = if let Some(snapshot) = self.snapshot.take() {
-            screen::exit_asb(snapshot.tty_fd);
-            let err = termios::set_termios(snapshot.tty_fd, &snapshot.termios);
-            unsafe { libc::close(snapshot.tty_fd); }
-            err
-        } else {
-            Ok(())
-        };
-
         // cleanup global snapshot pointer and reclaim leak
-        let snapshot_ptr = signal::clear_snapshot();
-        if !snapshot_ptr.is_null() {
-            // if signal handler claimed snapshot, this is a safe no-op
-            // otherwise, we free what we leaked during ::acquire()
-            unsafe { let _ = Box::from_raw(snapshot_ptr); }
+        //
+        // if signal handler claimed snapshot, this is a safe no-op
+        // otherwise, we free what we leaked during ::acquire()
+        let ptr = signal::clear_snapshot();
+        if !ptr.is_null() {
+            unsafe { let _ = Box::from_raw(ptr); }
         }
 
         // restore default signal dispositions
         signal::uninstall_handlers();
 
-        return restore_err;
+        screen::exit_asb(self.tty.fd);
+        self.tty.set_termios(&self.snapshot.termios)?;
+
+        Ok(())
     }
 }
 
 impl Drop for TerminalGuard {
-    fn drop(&mut self) { let _ = self.restore(); }
+    fn drop(&mut self) { let _ = self.restore(); } // swallow errors, just restore
 }
 
 
