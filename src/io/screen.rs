@@ -36,13 +36,13 @@ static ASB_ACTIVE: AtomicBool = AtomicBool::new(false);
 // │    UTILITY    │
 // ╰───────────────╯
 
-/// Enters the alternate screen buffer (idempotent).
+/// Enters the alternate screen buffer via `libc::write` (idempotent).
 pub(crate) fn enter_asb(fd: RawFd) {
     if ASB_ACTIVE.swap(true, Ordering::AcqRel) { return; }
     unsafe { libc::write(fd, ENTER_ASB.as_ptr() as *const _, ENTER_ASB.len()); }
 }
 
-/// Exits the alternate screen buffer (idempotent).
+/// Exits the alternate screen buffer via `libc::write` (idempotent).
 pub(crate) fn exit_asb(fd: RawFd) {
     if !ASB_ACTIVE.swap(false, Ordering::AcqRel) { return; }
     unsafe { libc::write(fd, EXIT_ASB.as_ptr() as *const _, EXIT_ASB.len()); }
