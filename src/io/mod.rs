@@ -20,8 +20,7 @@
 mod guard;
 mod screen;
 mod signal;
-mod termios;
 mod tty;
 
-pub use tty::{TerminalError, TerminalSnapshot};
+pub use tty::TerminalError;
 pub use guard::TerminalGuard;
