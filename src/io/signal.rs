@@ -22,6 +22,7 @@ use std::ptr;
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 
 use super::guard;
+use super::screen;
 use super::tty::{TerminalError, TerminalSnapshot};
 
 
@@ -59,6 +60,10 @@ extern "C" fn signal_handler(signal: libc::c_int) {
     if !snapshot_ptr.is_null() {
         unsafe {
             let snapshot = &*snapshot_ptr;
+
+            // exit the alternate screen buffer
+            // internally uses libc::write, so this is safe
+            screen::exit_asb(snapshot.tty_fd);
 
             // restore terminal state (async-signal-safe ops only)
             libc::tcflush(snapshot.tty_fd, libc::TCIFLUSH); // drop input queue

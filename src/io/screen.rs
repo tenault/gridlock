@@ -1,4 +1,4 @@
-// ╭─────────────────────────────────────────────────────────────────io/mod.rs─╮
+// ╭──────────────────────────────────────────────────────────────io/screen.rs─╮
 // │                                                                           │
 // │                                ┏━┓    ┏━━┓              ┏━┓               │
 // │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
@@ -17,11 +17,33 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
-mod guard;
-mod screen;
-mod signal;
-mod termios;
-mod tty;
+use std::os::unix::io::RawFd;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-pub use tty::{TerminalError, TerminalSnapshot};
-pub use guard::TerminalGuard;
+
+// ╭────────────────╮
+// │    CONTROLS    │
+// ╰────────────────╯
+
+const ENTER_ASB: &[u8] = b"\x1b[?1049h";
+const EXIT_ASB:  &[u8] = b"\x1b[?1049l";
+
+/// Idempotency flag to protect entry/exits of the alternate screen buffer.
+static ASB_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+
+// ╭───────────────╮
+// │    UTILITY    │
+// ╰───────────────╯
+
+/// Enters the alternate screen buffer (idempotent).
+pub(crate) fn enter_asb(fd: RawFd) {
+    if ASB_ACTIVE.swap(true, Ordering::AcqRel) { return; }
+    unsafe { libc::write(fd, ENTER_ASB.as_ptr() as *const _, ENTER_ASB.len()); }
+}
+
+/// Exits the alternate screen buffer (idempotent).
+pub(crate) fn exit_asb(fd: RawFd) {
+    if !ASB_ACTIVE.swap(false, Ordering::AcqRel) { return; }
+    unsafe { libc::write(fd, EXIT_ASB.as_ptr() as *const _, EXIT_ASB.len()); }
+}
