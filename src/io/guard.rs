@@ -20,6 +20,7 @@
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use super::screen;
 use super::signal;
 use super::termios;
 use super::tty::{self, TerminalError, TerminalSnapshot};
@@ -80,8 +81,9 @@ impl TerminalGuard {
         // setup handlers for SIGINT, SIGTERM, etc
         signal::install_handlers()?;
 
-        // enter a known raw mode
+        // enter asb with known raw mode
         termios::uncook(tty_fd, &termios)?;
+        screen::enter_asb(tty_fd);
 
         // all potential errors thrown, guard can now be built
         GUARD_ALIVE.store(true, Ordering::Release);
@@ -131,6 +133,7 @@ impl TerminalGuard {
 
         // restore terminal state
         let restore_err = if let Some(snapshot) = self.snapshot.take() {
+            screen::exit_asb(snapshot.tty_fd);
             let err = termios::set_termios(snapshot.tty_fd, &snapshot.termios);
             unsafe { libc::close(snapshot.tty_fd); }
             err
