@@ -1,4 +1,4 @@
-// ╭─────────────────────────────────────────────────────────────io/termios.rs─╮
+// ╭──────────────────────────────────────────────────────────────io/screen.rs─╮
 // │                                                                           │
 // │                                ┏━┓    ┏━━┓              ┏━┓               │
 // │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
@@ -17,53 +17,51 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
-use std::io;
 use std::os::unix::io::RawFd;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use super::tty::TerminalError;
+use super::error::TerminalError;
+
+
+// ╭────────────────╮
+// │    CONTROLS    │
+// ╰────────────────╯
+
+pub(crate) const ENTER_ALT_SCREEN: &[u8] = b"\x1b[?1049h";
+pub(crate) const EXIT_ALT_SCREEN:  &[u8] = b"\x1b[?1049l";
+
+/// Idempotency flag to protect entry/exits of the alternate screen buffer.
+static ALT_SCREEN_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 
 // ╭───────────────╮
 // │    UTILITY    │
 // ╰───────────────╯
 
-/// Ingests and aggressively reduces given termios to bring the terminal to a known raw state.
-///
-/// This results in `c_iflag`, `c_oflag`, `c_lflag`, `c_cc[VMIN]` and `c_cc[VTIME]` being zeroed,
-/// ensuring consistent behavior regardless of any prior flags set (by the environment or other
-/// programs).
-pub(crate) fn uncook(fd: RawFd, term: &libc::termios) -> Result<(), TerminalError> {
-    let mut t = *term;
+/// Enters the alternate screen buffer via `libc::write` (idempotent).
+pub(crate) fn enter_alt_screen(fd: RawFd) -> Result<(), TerminalError> {
+    if ALT_SCREEN_ACTIVE.load(Ordering::Acquire) { return Ok(()); }
 
-    t.c_iflag = 0;
-    t.c_lflag = 0;
-    t.c_oflag = 0;
+    let count = unsafe {
+        libc::write(fd, ENTER_ALT_SCREEN.as_ptr() as *const _, ENTER_ALT_SCREEN.len())
+    };
 
-    t.c_cc[libc::VMIN] = 0;
-    t.c_cc[libc::VTIME] = 0;
+    if count < 0 { return Err(TerminalError::EnterAlternateScreen); }
 
-    set_termios(fd, &t)
+    ALT_SCREEN_ACTIVE.store(true, Ordering::Release);
+    Ok(())
 }
 
-/// Gets termios via `tcgetattr`.
-///
-/// Does __not__ close the tty fd on error. Caller is responsible for cleanup.
-pub(crate) fn get_termios(fd: RawFd) -> Result<libc::termios, TerminalError> {
-    let mut t: libc::termios = unsafe { std::mem::zeroed() };
-    if unsafe { libc::tcgetattr(fd, &mut t) } != 0 {
-        return Err(TerminalError::BadGetAttr(io::Error::last_os_error()));
-    }
+/// Exits the alternate screen buffer via `libc::write` (idempotent).
+pub(crate) fn exit_alt_screen(fd: RawFd) -> Result<(), TerminalError> {
+    if !ALT_SCREEN_ACTIVE.load(Ordering::Acquire) { return Ok(()); }
 
-    Ok(t)
-}
+    let count = unsafe {
+        libc::write(fd, EXIT_ALT_SCREEN.as_ptr() as *const _, EXIT_ALT_SCREEN.len())
+    };
 
-/// Sets termios via `tcsetattr`.
-///
-/// Does __not__ close the tty fd on error. Caller is responsible for cleanup.
-pub(crate) fn set_termios(fd: RawFd, t: &libc::termios) -> Result<(), TerminalError> {
-    if unsafe { libc::tcsetattr(fd, libc::TCSANOW, t) } != 0 {
-        return Err(TerminalError::BadSetAttr(io::Error::last_os_error()));
-    }
+    if count < 0 { return Err(TerminalError::ExitAlternateScreen); }
 
+    ALT_SCREEN_ACTIVE.store(false, Ordering::Release);
     Ok(())
 }
