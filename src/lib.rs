@@ -19,4 +19,4 @@
 
 pub mod io;
 
-pub use io::{TerminalGuard, TerminalError, TerminalSnapshot};
+pub use io::{TerminalGuard, TerminalError};

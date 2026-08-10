@@ -17,10 +17,11 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
+mod error;
 mod guard;
+mod screen;
 mod signal;
-mod termios;
 mod tty;
 
-pub use tty::{TerminalError, TerminalSnapshot};
+pub use error::TerminalError;
 pub use guard::TerminalGuard;
