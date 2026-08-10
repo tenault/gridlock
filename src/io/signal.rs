@@ -21,9 +21,10 @@ use std::io;
 use std::ptr;
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 
+use super::error::TerminalError;
 use super::guard;
 use super::screen;
-use super::tty::{TerminalError, TerminalSnapshot};
+use super::tty::TerminalSnapshot;
 
 
 // ╭────────────────╮
@@ -61,14 +62,14 @@ extern "C" fn signal_handler(signal: libc::c_int) {
         unsafe {
             let snapshot = &*snapshot_ptr;
 
-            // exit the alternate screen buffer
-            // internally uses libc::write, so this is safe
-            screen::exit_asb(snapshot.tty_fd);
+            // attempt exit of the alternate screen buffer
+            // internally, this is just a thin wrapper on libc::write(), so it's safe
+            let _ = screen::exit_alt_screen(snapshot.fd);
 
-            // restore terminal state (async-signal-safe ops only)
-            libc::tcflush(snapshot.tty_fd, libc::TCIFLUSH); // drop input queue
-            libc::tcsetattr(snapshot.tty_fd, libc::TCSANOW, &snapshot.termios);
-            libc::close(snapshot.tty_fd);
+            // restore terminal state
+            libc::tcflush(snapshot.fd, libc::TCIFLUSH); // drop input queue
+            libc::tcsetattr(snapshot.fd, libc::TCSANOW, &snapshot.termios);
+            libc::close(snapshot.fd);
 
             // leak snapshot intentionally since handler context can't safely dealloc
             // process exit will reclaim memory anyway
@@ -99,7 +100,7 @@ extern "C" fn signal_handler(signal: libc::c_int) {
 /// signal, preventing a half-installed state.
 pub(crate) fn install_handlers() -> Result<(), TerminalError> {
     // check if handlers are already installed (idempotent)
-    if HANDLERS_INSTALLED.load(Ordering::Acquire) { return Ok(()) }
+    if HANDLERS_INSTALLED.load(Ordering::Acquire) { return Ok(()); }
 
     let mut action: libc::sigaction = unsafe { std::mem::zeroed() };
     action.sa_sigaction = signal_handler as *const () as libc::sighandler_t;
@@ -108,9 +109,8 @@ pub(crate) fn install_handlers() -> Result<(), TerminalError> {
     // track installs for rollback on error
     let mut installed: Vec<libc::c_int> = Vec::new();
 
-    // install
-    for &signal in &HANDLED_SIGNALS {
-        unsafe {
+    unsafe { // install handlers
+        for &signal in &HANDLED_SIGNALS {
             if libc::sigaction(signal, &action, ptr::null_mut()) != 0 {
                 // rollback installs to default to prevent an undefined, half-installed state
                 let mut default: libc::sigaction = std::mem::zeroed();
@@ -119,8 +119,8 @@ pub(crate) fn install_handlers() -> Result<(), TerminalError> {
                 for &prior in &installed { libc::sigaction(prior, &default, ptr::null_mut()); }
 
                 // raise error
-                return Err(TerminalError::BadInstallHandler {
-                    signal: signal,
+                return Err(TerminalError::InstallSignal {
+                    signal,
                     source: io::Error::last_os_error(),
                 });
             }
@@ -130,25 +130,32 @@ pub(crate) fn install_handlers() -> Result<(), TerminalError> {
     }
 
     HANDLERS_INSTALLED.store(true, Ordering::Release);
-
     Ok(())
 }
 
 /// Restores default signal dispositions via `sigaction`.
 ///
 /// Uninstallation runs through `HANDLED_SIGNALS` array.
-pub(crate) fn uninstall_handlers() {
+pub(crate) fn uninstall_handlers() -> Result<(), TerminalError> {
     // check if handlers are already uninstalled (idempotent)
-    if !HANDLERS_INSTALLED.load(Ordering::Acquire) { return; }
+    if !HANDLERS_INSTALLED.load(Ordering::Acquire) { return Ok(()); }
 
     let mut default: libc::sigaction = unsafe { std::mem::zeroed() };
     default.sa_sigaction = libc::SIG_DFL as libc::sighandler_t;
 
-    unsafe {
-        for &signal in &HANDLED_SIGNALS { libc::sigaction(signal, &default, ptr::null_mut()); }
+    unsafe { // uninstall handlers
+        for &signal in &HANDLED_SIGNALS {
+            if libc::sigaction(signal, &default, ptr::null_mut()) != 0 {
+                return Err(TerminalError::UninstallSignal {
+                    signal,
+                    source: io::Error::last_os_error(),
+                });
+            }
+        }
     }
 
     HANDLERS_INSTALLED.store(false, Ordering::Release);
+    Ok(())
 }
 
 // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮

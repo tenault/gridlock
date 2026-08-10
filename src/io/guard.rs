@@ -20,9 +20,10 @@
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use super::error::TerminalError;
 use super::screen;
 use super::signal;
-use super::tty::{TTY, TerminalError, TerminalSnapshot};
+use super::tty::{TTY, TerminalSnapshot};
 
 
 // ╭────────────────╮
@@ -58,14 +59,15 @@ impl TerminalGuard {
     /// `stdin` is redirected.
     pub fn acquire() -> Result<Self, TerminalError> {
         // enforce singleton
-        if GUARD_ALIVE.load(Ordering::Acquire) { return Err(TerminalError::ExistingGuard); }
+        if GUARD_ALIVE.load(Ordering::Acquire) { return Err(TerminalError::IllegalGuard); }
 
         let tty = TTY::open()?;
+        let fd = tty.fd()?;
 
         let termios = match tty.get_termios() {
             Ok(t) => t,
             Err(e) => {
-                unsafe { libc::close(tty.fd); }
+                unsafe { libc::close(fd); }
                 return Err(e);
             }
         };
@@ -73,26 +75,26 @@ impl TerminalGuard {
         let (rows, cols) = match tty.query_winsize() {
             Ok(size) => size,
             Err(e) => {
-                unsafe { libc::close(tty.fd); }
+                unsafe { libc::close(fd); }
                 return Err(e);
             }
         };
 
-        // setup handlers for SIGINT, SIGTERM, etc
+        // install handlers for SIGINT, SIGTERM, etc
         signal::install_handlers()?;
 
-        // enter asb with known raw mode
+        // configure terminal
         tty.uncook()?;
-        screen::enter_asb(tty.fd);
+        screen::enter_alt_screen(fd)?;
 
         // all potential errors thrown, guard can now be built
         GUARD_ALIVE.store(true, Ordering::Release);
 
         let snapshot = TerminalSnapshot {
+            fd,
             termios,
             ws_rows: rows,
             ws_cols: cols,
-            tty_fd: tty.fd,
         };
 
         // store the snapshot pointer globally for signal handlers
@@ -121,7 +123,9 @@ impl TerminalGuard {
 
     fn restore(&mut self) -> Result<(), TerminalError> {
         // check if already restored (idempotent)
-        if !GUARD_ALIVE.swap(false, Ordering::AcqRel) { return Ok(()); }
+        if !GUARD_ALIVE.swap(false, Ordering::AcqRel) {
+            return Err(TerminalError::AlreadyRestored);
+        }
 
         // cleanup global snapshot pointer and reclaim leak
         //
@@ -133,17 +137,19 @@ impl TerminalGuard {
         }
 
         // restore default signal dispositions
-        signal::uninstall_handlers();
+        signal::uninstall_handlers()?;
 
-        screen::exit_asb(self.tty.fd);
+        // restore terminal
+        screen::exit_alt_screen(self.snapshot.fd)?;
         self.tty.set_termios(&self.snapshot.termios)?;
+        self.tty.close()?;
 
         Ok(())
     }
 }
 
 impl Drop for TerminalGuard {
-    fn drop(&mut self) { let _ = self.restore(); } // swallow errors, just restore
+    fn drop(&mut self) { let _ = self.restore(); } // swallow errors, we just wanna restore
 }
 
 

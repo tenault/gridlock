@@ -20,16 +20,18 @@
 use std::os::unix::io::RawFd;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use super::error::TerminalError;
+
 
 // ╭────────────────╮
 // │    CONTROLS    │
 // ╰────────────────╯
 
-const ENTER_ASB: &[u8] = b"\x1b[?1049h";
-const EXIT_ASB:  &[u8] = b"\x1b[?1049l";
+pub(crate) const ENTER_ALT_SCREEN: &[u8] = b"\x1b[?1049h";
+pub(crate) const EXIT_ALT_SCREEN:  &[u8] = b"\x1b[?1049l";
 
 /// Idempotency flag to protect entry/exits of the alternate screen buffer.
-static ASB_ACTIVE: AtomicBool = AtomicBool::new(false);
+static ALT_SCREEN_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 
 // ╭───────────────╮
@@ -37,13 +39,29 @@ static ASB_ACTIVE: AtomicBool = AtomicBool::new(false);
 // ╰───────────────╯
 
 /// Enters the alternate screen buffer via `libc::write` (idempotent).
-pub(crate) fn enter_asb(fd: RawFd) {
-    if ASB_ACTIVE.swap(true, Ordering::AcqRel) { return; }
-    unsafe { libc::write(fd, ENTER_ASB.as_ptr() as *const _, ENTER_ASB.len()); }
+pub(crate) fn enter_alt_screen(fd: RawFd) -> Result<(), TerminalError> {
+    if ALT_SCREEN_ACTIVE.load(Ordering::Acquire) { return Ok(()); }
+
+    let count = unsafe {
+        libc::write(fd, ENTER_ALT_SCREEN.as_ptr() as *const _, ENTER_ALT_SCREEN.len())
+    };
+
+    if count < 0 { return Err(TerminalError::EnterAlternateScreen); }
+
+    ALT_SCREEN_ACTIVE.store(true, Ordering::Release);
+    Ok(())
 }
 
 /// Exits the alternate screen buffer via `libc::write` (idempotent).
-pub(crate) fn exit_asb(fd: RawFd) {
-    if !ASB_ACTIVE.swap(false, Ordering::AcqRel) { return; }
-    unsafe { libc::write(fd, EXIT_ASB.as_ptr() as *const _, EXIT_ASB.len()); }
+pub(crate) fn exit_alt_screen(fd: RawFd) -> Result<(), TerminalError> {
+    if !ALT_SCREEN_ACTIVE.load(Ordering::Acquire) { return Ok(()); }
+
+    let count = unsafe {
+        libc::write(fd, EXIT_ALT_SCREEN.as_ptr() as *const _, EXIT_ALT_SCREEN.len())
+    };
+
+    if count < 0 { return Err(TerminalError::ExitAlternateScreen); }
+
+    ALT_SCREEN_ACTIVE.store(false, Ordering::Release);
+    Ok(())
 }
