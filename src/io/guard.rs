@@ -119,6 +119,14 @@ impl TerminalGuard {
         return err;
     }
 
+    // ───── utility ─────
+
+    /// Queries the terminal dimensions via `ioctl(TIOCGWINSZ)`.
+    pub fn query_dimensions(&self) -> Result<(u16, u16), TerminalError> { self.tty.query_winsize() }
+
+    /// Returns the cached terminal dimensions, avoiding a syscall.
+    pub fn get_cached_dimensions() -> Option<(u16, u16)> { tty::get_cached_winsize() }
+
     // ╶╶╶╶╶ internal ╴╴╴╴╴
 
     fn restore(&mut self) -> Result<(), TerminalError> {
@@ -153,9 +161,9 @@ impl Drop for TerminalGuard {
 }
 
 
-// ╭───────────────╮
-// │    UTILITY    │
-// ╰───────────────╯
+// ╭─────────────────╮
+// │    ACCESSORS    │
+// ╰─────────────────╯
 
 /// Explicitly marks `GUARD_ALIVE = false` for external idempotency (used by `signal_handler()`).
 ///
