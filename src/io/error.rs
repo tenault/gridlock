@@ -39,7 +39,6 @@ pub enum TerminalError {
     /// Failed to close the controlling terminal.
     ///
     /// This is likely due to:
-    /// - `EBADF`: Invalid file descriptor (or already closed)
     /// - `EINTR`: Interrupted by signal, fd state is unspecified
     /// - `EIO`: Device-level I/O error (very rare)
     CloseTTY { fd: RawFd, source: io::Error },
@@ -208,6 +207,11 @@ impl TerminalError {
         }
     }
 }
+
+
+// ╭──────────────────╮
+// │    EXTENSIONS    │
+// ╰──────────────────╯
 
 impl std::fmt::Display for TerminalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

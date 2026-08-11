@@ -1,4 +1,4 @@
-// ╭──────────────────────────────────────────────────────────────io/screen.rs─╮
+// ╭─────────────────────────────────────────────────────────────io/escapes.rs─╮
 // │                                                                           │
 // │                                ┏━┓    ┏━━┓              ┏━┓               │
 // │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
@@ -17,51 +17,9 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
-use std::os::unix::io::RawFd;
-use std::sync::atomic::{AtomicBool, Ordering};
-
-use super::error::TerminalError;
-
-
-// ╭────────────────╮
-// │    CONTROLS    │
-// ╰────────────────╯
+// ╭───────────────╮
+// │    ESCAPES    │
+// ╰───────────────╯
 
 pub(crate) const ENTER_ALT_SCREEN: &[u8] = b"\x1b[?1049h";
 pub(crate) const EXIT_ALT_SCREEN:  &[u8] = b"\x1b[?1049l";
-
-/// Idempotency flag to protect entry/exits of the alternate screen buffer.
-static ALT_SCREEN_ACTIVE: AtomicBool = AtomicBool::new(false);
-
-
-// ╭───────────────╮
-// │    UTILITY    │
-// ╰───────────────╯
-
-/// Enters the alternate screen buffer via `libc::write` (idempotent).
-pub(crate) fn enter_alt_screen(fd: RawFd) -> Result<(), TerminalError> {
-    if ALT_SCREEN_ACTIVE.load(Ordering::Acquire) { return Ok(()); }
-
-    let count = unsafe {
-        libc::write(fd, ENTER_ALT_SCREEN.as_ptr() as *const _, ENTER_ALT_SCREEN.len())
-    };
-
-    if count < 0 { return Err(TerminalError::EnterAlternateScreen); }
-
-    ALT_SCREEN_ACTIVE.store(true, Ordering::Release);
-    Ok(())
-}
-
-/// Exits the alternate screen buffer via `libc::write` (idempotent).
-pub(crate) fn exit_alt_screen(fd: RawFd) -> Result<(), TerminalError> {
-    if !ALT_SCREEN_ACTIVE.load(Ordering::Acquire) { return Ok(()); }
-
-    let count = unsafe {
-        libc::write(fd, EXIT_ALT_SCREEN.as_ptr() as *const _, EXIT_ALT_SCREEN.len())
-    };
-
-    if count < 0 { return Err(TerminalError::ExitAlternateScreen); }
-
-    ALT_SCREEN_ACTIVE.store(false, Ordering::Release);
-    Ok(())
-}
