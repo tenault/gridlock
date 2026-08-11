@@ -86,13 +86,24 @@ extern "C" fn signal_handler(signal: libc::c_int) {
 }
 
 
+// ╭─────────────────╮
+// │    ACCESSORS    │
+// ╰─────────────────╯
+
+/// Exposes access to the snapshot pointer so that `TerminalGuard` may set it.
+pub(crate) fn store_snapshot(ptr: *mut TerminalSnapshot) {
+    SNAPSHOT_PTR.store(ptr, Ordering::Release);
+}
+
+/// Clears the snapshot pointer (and returns it) (idempotent).
+pub(crate) fn clear_snapshot() -> *mut TerminalSnapshot {
+    SNAPSHOT_PTR.swap(ptr::null_mut(), Ordering::AcqRel)
+}
+
+
 // ╭───────────────╮
 // │    UTILITY    │
 // ╰───────────────╯
-
-// ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-//      handler
-// ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
 /// Installs signal handler via `sigaction` to capture `SIGINT`, `SIGTERM`, etc.
 ///
@@ -156,18 +167,4 @@ pub(crate) fn uninstall_handlers() -> Result<(), TerminalError> {
 
     HANDLERS_INSTALLED.store(false, Ordering::Release);
     Ok(())
-}
-
-// ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-//      snapshot pointer
-// ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
-
-/// Exposes access to the snapshot pointer so that `TerminalGuard` may set it.
-pub(crate) fn store_snapshot(ptr: *mut TerminalSnapshot) {
-    SNAPSHOT_PTR.store(ptr, Ordering::Release);
-}
-
-/// Clears the snapshot pointer (and returns it) (idempotent).
-pub(crate) fn clear_snapshot() -> *mut TerminalSnapshot {
-    SNAPSHOT_PTR.swap(ptr::null_mut(), Ordering::AcqRel)
 }

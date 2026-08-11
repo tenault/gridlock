@@ -19,8 +19,24 @@
 
 use std::io::{self, Write};
 use std::os::unix::io::RawFd;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use super::error::TerminalError;
+
+
+// ╭────────────────╮
+// │    CONTROLS    │
+// ╰────────────────╯
+
+/// Packed cache of terminal dimensions (high 16 bits is rows, low 16 is cols).
+///
+/// Zero means "uninitialized" (no successful query has been made yet). This is purely a
+/// performance hint; callers needing guaranteed dimensions should use [`TTY::query_winsize()`],
+/// which performs `ioctl(TIOCGWINSZ)`.
+///
+/// `SIGWINCH` handlers should call [`invalidate_winsize_cache()`] to mark this stale, prompting the
+/// next hot-loop consumer to re-query.
+static WINSIZE_CACHE: AtomicU32 = AtomicU32::new(0);
 
 
 // ╭───────────╮
@@ -156,7 +172,7 @@ impl TTY {
         Ok(())
     }
 
-    /// Ingests and aggressively reduces current termios to enter a known raw state.
+    /// Ingests and aggressively reduces the current termios to enter a known raw state.
     ///
     /// This results in `c_iflag`, `c_oflag`, `c_lflag`, `c_cc[VMIN]` and `c_cc[VTIME]` being
     /// zeroed, ensuring consistent behavior regardless of any prior flags set (by the environment
@@ -174,12 +190,14 @@ impl TTY {
         self.set_termios(&t)
     }
 
-    // ───── utility ─────
+    // ───── accessors ─────
 
     /// Returns the controlling terminal file descriptor, or errors if closed.
     pub(crate) fn fd(&self) -> Result<RawFd, TerminalError> {
-        self.fd.ok_or(TerminalError::InvalidFd)    
+        self.fd.ok_or(TerminalError::InvalidFd)
     }
+
+    // ───── utility ─────
 
     /// Returns `(ws_row, ws_col)` via `ioctl(TIOCGWINSZ)`.
     pub(crate) fn query_winsize(&self) -> Result<(u16, u16), TerminalError> {
@@ -192,6 +210,9 @@ impl TTY {
                 source: io::Error::last_os_error(),
             });
         }
+
+        // seed the cache for hot-loop consumers
+        WINSIZE_CACHE.store(pack_dimensions(ws.ws_row, ws.ws_col), Ordering::Release);
 
         Ok((ws.ws_row, ws.ws_col))
     }
@@ -238,4 +259,31 @@ impl TerminalSnapshot {
 
         Ok(())
     }
+}
+
+
+// ╭─────────────────╮
+// │    ACCESSORS    │
+// ╰─────────────────╯
+
+/// Returns the cached terminal dimensions, avoiding a syscall.
+pub(crate) fn get_cached_winsize() -> Option<u16, u16> {
+    unpack_dimensions(WINSIZE_CACHE.load(Ordering::Acquire))
+}
+
+/// Invalidates the winsize cache, forcing the next consumer to re-query.
+pub(crate) fn invalidate_winsize_cache() { WINSIZE_CACHE.store(0, Ordering::Release); }
+
+
+// ╭───────────────╮
+// │    UTILITY    │
+// ╰───────────────╯
+
+/// Packs (rows, cols) into one `u32` for atomic storage.
+fn pack_dimensions(rows: u16, cols: u16) { ((rows as u32) << 16) | (cols as u32) }
+
+/// Unpacks a `u32` into (rows, cols), or returns `None` if zeroed.
+fn unpack_dimensions(pack: u32) -> Option<(u16, u16)> {
+    if pack == 0 { return None; }
+    Some(((pack >> 16) as u16, pack as u16))
 }
