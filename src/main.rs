@@ -19,10 +19,10 @@
 
 use std::io::{self, Read};
 
-use gridlock::TerminalGuard;
+use gridlock::Terminal;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let _guard = TerminalGuard::acquire().expect("Failed to acquire terminal.");
+    let _term = Terminal::acquire().expect("Failed to acquire terminal.");
 
     let mut stdin = io::stdin().lock();
     let mut buf = [0u8; 16];
