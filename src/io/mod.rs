@@ -18,10 +18,10 @@
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
 mod error;
-mod guard;
-mod screen;
+mod escapes;
 mod signal;
+mod terminal;
 mod tty;
 
 pub use error::TerminalError;
-pub use guard::TerminalGuard;
+pub use terminal::Terminal;
