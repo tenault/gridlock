@@ -1,4 +1,4 @@
-// ╭─────────────────────────────────────────────────────────────io/escapes.rs─╮
+// ╭──────────────────────────────────────────────────────────────io/cursor.rs─╮
 // │                                                                           │
 // │                                ┏━┓    ┏━━┓              ┏━┓               │
 // │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
@@ -17,72 +17,59 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
-// ╭───────────────╮
-// │    ESCAPES    │
-// ╰───────────────╯
-
-pub(crate) const ESC: u8 = 0x1b;
-
-pub(crate) const CSI: [u8; 2] = [ESC, b'['];
-
-pub(crate) const ENTER_ALT_SCREEN: &[u8] = b"\x1b[?1049h";
-pub(crate) const EXIT_ALT_SCREEN:  &[u8] = b"\x1b[?1049l";
+use crate::csi;
 
 
-// ╭───────────────╮
-// │    UTILITY    │
-// ╰───────────────╯
+// ╭──────────────────────╮
+// │    VIRTUAL CURSOR    │
+// ╰──────────────────────╯
 
-pub(crate) fn generate_csi(params: &[u16], cmd: u8) -> Vec<u8> {
-    let mut out = Vec::with_capacity(3 + params.len() * 2 + params.len().saturating_sub(1));
-    out.extend_from_slice(&CSI);
-
-    for (i, &p) in params.iter().enumerate() {
-        if i > 0 { out.push(b';'); }
-        int_to_ascii(p, &mut out);
-    }
-
-    out.push(cmd);
-    out
+pub(crate) struct VirtualCursor {
+    x: u16,
+    y: u16,
+    stack: Vec<(u16, u16)>,
 }
 
-fn int_to_ascii(n: u16, out: &mut Vec<u8>) {
-    if n == 0 {
-        out.push(b'0');
-        return;
+impl VirtualCursor {
+
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    constructor    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+
+    pub(crate) fn new() -> Self { 
+        Self { x: 0, y: 0, stack: Vec::new() }
     }
 
-    let mut buf = [0u8; 5]; // u16::MAX = 65535
-    let mut i = 4;
-    let mut v = n;
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    accessors    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
-    while v > 0 && i > 0 {
-        buf[i] = (v % 10) as u8 + b'0';
-        v /= 10;
-        i -= 1;
+    pub(crate) fn locate(&self) -> (u16, u16) { (self.x, self.y) }
+
+    pub(crate) fn stack_depth(&self) -> usize { self.stack.len() }
+
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    utility    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    
+    pub(crate) fn move_to(&mut self, x: u16, y: u16) -> Vec<u8> {
+        self.x = x;
+        self.y = y;
+
+        if x == 0 && y == 0 { return csi!('H') }
+        
+        csi!(y + 1, x + 1, 'H')
     }
 
-    out.extend_from_slice(&buf[i + 1..]);
-}
+    pub(crate) fn save(&mut self) { self.stack.push((self.x, self.y)); }
 
-
-// ╭──────────────╮
-// │    MACROS    │
-// ╰──────────────╯
-
-#[macro_export]
-macro_rules! csi {
-    // cmd + no params
-    (@ [] $cmd:literal) => { crate::io::escapes::generate_csi(&[], $cmd as u8) };
-
-    // cmd + some params
-    (@ [$($acc:expr),+] $cmd:literal) => {
-        crate::io::escapes::generate_csi(&[$($acc as u16),+], $cmd as u8)
-    };
-
-    // param extractor
-    (@ [$($acc:expr),*] $param:expr, $($rest:tt)*) => { csi!(@ [$($acc,)* $param] $($rest)*) };
-
-    // entry -> param extractor
-    ($($tt:tt)+) => { csi!(@ [] $($tt)+) };
+    pub(crate) fn restore(&mut self) -> Vec<u8> {
+        if let Some((x, y)) = self.stack.pop() {
+            self.x = x;
+            self.y = y;
+            csi!(y + 1, x + 1, 'H')
+        } else {
+            Vec::new()
+        }
+    }
 }

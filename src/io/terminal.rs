@@ -22,6 +22,7 @@ use std::marker::PhantomData;
 use std::os::unix::io::RawFd;
 use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 
+use super::cursor::VirtualCursor;
 use super::error::TerminalError;
 use super::escapes;
 use super::signal;
@@ -56,6 +57,7 @@ static WINSIZE_CACHE: AtomicU32 = AtomicU32::new(0);
 /// Owns the terminal snapshot and guarantees state restoration on drop.
 pub struct Terminal {
     tty: TTY,
+    cursor: VirtualCursor,
     snapshot: TerminalSnapshot,
     _marker: PhantomData<*mut ()>, // constrains !Send + !Sync
 
@@ -124,12 +126,37 @@ impl Terminal {
 
         Ok(Self {
             tty,
+            cursor: VirtualCursor::new(),
             snapshot,
             _marker: PhantomData,
 
             rows,
             cols,
         })
+    }
+
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    terminal i/o    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+
+    pub fn read(&self, mut buf: &mut [u8]) -> Result<usize, TerminalError> {
+        self.tty.read_raw(buf)
+    }
+
+    pub fn write(&self, s: &str) -> Result<(), TerminalError> {
+        self.tty.write_raw(s.as_bytes())?;
+        Ok(())
+    }
+
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    cursor    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+
+    pub fn move_cursor(&mut self, x: u16, y: u16) -> Result<(), TerminalError> {
+        let cmd = self.cursor.move_to(x, y);
+        self.tty.write_raw(&cmd)?;
+        
+        Ok(())
     }
 
     // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
