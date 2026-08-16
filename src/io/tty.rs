@@ -17,7 +17,7 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
-use std::io::{self, Write};
+use std::io;
 use std::os::unix::io::RawFd;
 
 use super::error::TerminalError;
@@ -27,12 +27,14 @@ use super::error::TerminalError;
 // │    TTY    │
 // ╰───────────╯
 
-/// Interface for the controlling tty.
+/// Abstracted interface for the controlling tty.
 pub(crate) struct TTY { fd: Option<RawFd> }
 
 impl TTY {
 
-    // ───── constructor ─────
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    constructor    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
     /// Resolves the controlling terminal file descriptor via `/dev/tty`.
     pub(crate) fn open() -> Result<Self, TerminalError> {
@@ -47,25 +49,34 @@ impl TTY {
         Ok(Self { fd: Some(fd) })
     }
 
-    // ───── cleanup ─────
 
-    /// Closes the controlling terminal file descriptor.
-    pub(crate) fn close(&mut self) -> Result<(), TerminalError> {
-        if let Some(fd) = self.fd.take() {
-            if unsafe { libc::close(fd) } != 0 {
-                let err = io::Error::last_os_error();
-                if err.raw_os_error() == Some(libc::EBADF) { return Ok(()); } // duplicate close ok
-                return Err(TerminalError::CloseTTY {
-                    fd,
-                    source: err,
-                });
-            }
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    terminal i/o    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+
+    /// Reads available bytes from the tty fd, non-blocking.
+    ///
+    /// Because the guard configures with `VMIN=0` and `VTIME=0`, this returns immediately with
+    /// `0-N` bytes read (`0` means no input pending, not `EOF`).
+    pub(crate) fn read_raw(&self, buf: &mut [u8]) -> Result<usize, TerminalError> {
+        let fd = self.fd()?;
+
+        let count = unsafe {
+            libc::read(fd, buf.as_mut_ptr() as *mut _, buf.len())
+        };
+
+        if count < 0 {
+            let err = io::Error::last_os_error();
+            if err.raw_os_error() == Some(libc::EINTR) { return self.read_raw(buf); }
+            return Err(TerminalError::Read {
+                fd,
+                read: 0,
+                source: err,
+            });
         }
 
-        Ok(()) // no fd to close, we're chillin
+        Ok(count as usize)
     }
-
-    // ───── terminal i/o ─────
 
     /// Writes all bytes to the tty fd, with `EINTR` handling and partial-write recovery.
     ///
@@ -101,31 +112,9 @@ impl TTY {
         Ok(index)
     }
 
-    /// Reads available bytes from the tty fd, non-blocking.
-    ///
-    /// Because the guard configures with `VMIN=0` and `VTIME=0`, this returns immediately with
-    /// `0-N` bytes read (`0` means no input pending, not `EOF`).
-    pub(crate) fn read_raw(&self, buf: &mut [u8]) -> Result<usize, TerminalError> {
-        let fd = self.fd()?;
-
-        let count = unsafe {
-            libc::read(fd, buf.as_mut_ptr() as *mut _, buf.len())
-        };
-
-        if count < 0 {
-            let err = io::Error::last_os_error();
-            if err.raw_os_error() == Some(libc::EINTR) { return self.read_raw(buf); }
-            return Err(TerminalError::Read {
-                fd,
-                read: 0,
-                source: err,
-            });
-        }
-
-        Ok(count as usize)
-    }
-
-    // ───── termios ─────
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    termios    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
     /// Gets termios via `tcgetattr()`.
     pub(crate) fn get_termios(&self) -> Result<libc::termios, TerminalError> {
@@ -156,7 +145,7 @@ impl TTY {
         Ok(())
     }
 
-    /// Ingests and aggressively reduces current termios to enter a known raw state.
+    /// Ingests and zeroes current termios to enter a known raw state.
     ///
     /// This results in `c_iflag`, `c_oflag`, `c_lflag`, `c_cc[VMIN]` and `c_cc[VTIME]` being
     /// zeroed, ensuring consistent behavior regardless of any prior flags set (by the environment
@@ -174,12 +163,9 @@ impl TTY {
         self.set_termios(&t)
     }
 
-    // ───── utility ─────
-
-    /// Returns the controlling terminal file descriptor, or errors if closed.
-    pub(crate) fn fd(&self) -> Result<RawFd, TerminalError> {
-        self.fd.ok_or(TerminalError::InvalidFd)    
-    }
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    utility    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
     /// Returns `(ws_row, ws_col)` via `ioctl(TIOCGWINSZ)`.
     pub(crate) fn query_winsize(&self) -> Result<(u16, u16), TerminalError> {
@@ -195,47 +181,42 @@ impl TTY {
 
         Ok((ws.ws_row, ws.ws_col))
     }
+
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    accessors    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+
+    /// Returns the controlling terminal file descriptor, or errors if closed.
+    pub(crate) fn fd(&self) -> Result<RawFd, TerminalError> {
+        self.fd.ok_or(TerminalError::InvalidFd)
+    }
+
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    cleanup    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+
+    /// Closes the controlling terminal file descriptor.
+    pub(crate) fn close(&mut self) -> Result<(), TerminalError> {
+        if let Some(fd) = self.fd.take() {
+            if unsafe { libc::close(fd) } != 0 {
+                let err = io::Error::last_os_error();
+                if err.raw_os_error() == Some(libc::EBADF) { return Ok(()); } // duplicate close ok
+                return Err(TerminalError::CloseTTY {
+                    fd,
+                    source: err,
+                });
+            }
+        }
+
+        Ok(()) // no fd to close, so we're chillin
+    }
 }
+
+
+// ╭──────────────────╮
+// │    EXTENSIONS    │
+// ╰──────────────────╯
 
 impl Drop for TTY {
     fn drop(&mut self) { let _ = self.close(); } // swallow errors, we just wanna close
-}
-
-
-// ╭─────────────────────╮
-// │    SUPPORT TYPES    │
-// ╰─────────────────────╯
-
-/// An immutable snapshot of the terminal's state at acquistion time.
-#[derive(Debug, Clone)]
-pub(crate) struct TerminalSnapshot {
-    pub(crate) fd: RawFd,
-    pub(crate) termios: libc::termios,
-    pub(crate) ws_rows: u16,
-    pub(crate) ws_cols: u16,
-}
-
-impl TerminalSnapshot {
-    /// Pretty-prints the saved termios to a writer (for logging, etc)
-    pub(crate) fn dump_termios<W: Write>(&self, w: &mut W) -> io::Result<()> {
-        let t = &self.termios;
-        writeln!(w, "----[ terminal snapshot ]----------------")?;
-        writeln!(w, " -> tty_fd  : {}", self.fd)?;
-        writeln!(w, " -> winsize : {} cols x {} rows", self.ws_cols, self.ws_rows)?;
-        writeln!(w, " -> c_iflag : 0x{:08x}", t.c_iflag)?;
-        writeln!(w, " -> c_oflag : 0x{:08x}", t.c_oflag)?;
-        writeln!(w, " -> c_cflag : 0x{:08x}", t.c_cflag)?;
-        writeln!(w, " -> c_lflag : 0x{:08x}", t.c_lflag)?;
-
-        // c_cc is [u8; N] where N varies by platform
-        // we only want the standard POSIX control codes, so we drop index > 10...
-        write!(w, " -> c_cc    : [")?;
-        for (i, &cc) in t.c_cc.iter().take(11).enumerate() {
-            if i > 0 { write!(w, ", ")?; }
-            write!(w, "0x{:02x}", cc)?;
-        }
-        writeln!(w, ", ...]")?; // ...but we should still signal that more codes exist.
-
-        Ok(())
-    }
 }

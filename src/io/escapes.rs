@@ -1,4 +1,4 @@
-// ╭──────────────────────────────────────────────────────────────io/screen.rs─╮
+// ╭─────────────────────────────────────────────────────────────io/escapes.rs─╮
 // │                                                                           │
 // │                                ┏━┓    ┏━━┓              ┏━┓               │
 // │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
@@ -17,51 +17,72 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
-use std::os::unix::io::RawFd;
-use std::sync::atomic::{AtomicBool, Ordering};
+// ╭───────────────╮
+// │    ESCAPES    │
+// ╰───────────────╯
 
-use super::error::TerminalError;
+pub(crate) const ESC: u8 = 0x1b;
 
-
-// ╭────────────────╮
-// │    CONTROLS    │
-// ╰────────────────╯
+pub(crate) const CSI: [u8; 2] = [ESC, b'['];
 
 pub(crate) const ENTER_ALT_SCREEN: &[u8] = b"\x1b[?1049h";
 pub(crate) const EXIT_ALT_SCREEN:  &[u8] = b"\x1b[?1049l";
-
-/// Idempotency flag to protect entry/exits of the alternate screen buffer.
-static ALT_SCREEN_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 
 // ╭───────────────╮
 // │    UTILITY    │
 // ╰───────────────╯
 
-/// Enters the alternate screen buffer via `libc::write` (idempotent).
-pub(crate) fn enter_alt_screen(fd: RawFd) -> Result<(), TerminalError> {
-    if ALT_SCREEN_ACTIVE.load(Ordering::Acquire) { return Ok(()); }
+pub(crate) fn generate_csi(params: &[u16], cmd: u8) -> Vec<u8> {
+    let mut out = Vec::with_capacity(3 + params.len() * 2 + params.len().saturating_sub(1));
+    out.extend_from_slice(&CSI);
 
-    let count = unsafe {
-        libc::write(fd, ENTER_ALT_SCREEN.as_ptr() as *const _, ENTER_ALT_SCREEN.len())
-    };
+    for (i, &p) in params.iter().enumerate() {
+        if i > 0 { out.push(b';'); }
+        int_to_ascii(p, &mut out);
+    }
 
-    if count < 0 { return Err(TerminalError::EnterAlternateScreen); }
-
-    ALT_SCREEN_ACTIVE.store(true, Ordering::Release);
-    Ok(())
+    out.push(cmd);
+    out
 }
 
-/// Exits the alternate screen buffer via `libc::write` (idempotent).
-pub(crate) fn exit_alt_screen(fd: RawFd) -> Result<(), TerminalError> {
-    if !ALT_SCREEN_ACTIVE.load(Ordering::Acquire) { return Ok(()); }
+fn int_to_ascii(n: u16, out: &mut Vec<u8>) {
+    if n == 0 {
+        out.push(b'0');
+        return;
+    }
 
-    let count = unsafe {
-        libc::write(fd, EXIT_ALT_SCREEN.as_ptr() as *const _, EXIT_ALT_SCREEN.len())
+    let mut buf = [0u8; 5]; // u16::MAX = 65535
+    let mut i = 4;
+    let mut v = n;
+
+    while v > 0 && i > 0 {
+        buf[i] = (v % 10) as u8 + b'0';
+        v /= 10;
+        i -= 1;
+    }
+
+    out.extend_from_slice(&buf[i + 1..]);
+}
+
+
+// ╭──────────────╮
+// │    MACROS    │
+// ╰──────────────╯
+
+#[macro_export]
+macro_rules! csi {
+    // cmd + no params
+    (@ [] $cmd:literal) => { crate::io::escapes::generate_csi(&[], $cmd as u8) };
+
+    // cmd + some params
+    (@ [$($acc:expr),+] $cmd:literal) => {
+        crate::io::escapes::generate_csi(&[$($acc as u16),+], $cmd as u8)
     };
 
-    if count < 0 { return Err(TerminalError::ExitAlternateScreen); }
+    // param extractor
+    (@ [$($acc:expr),*] $param:expr, $($rest:tt)*) => { csi!(@ [$($acc,)* $param] $($rest)*) };
 
-    ALT_SCREEN_ACTIVE.store(false, Ordering::Release);
-    Ok(())
+    // entry -> param extractor
+    ($($tt:tt)+) => { csi!(@ [] $($tt)+) };
 }
