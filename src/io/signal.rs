@@ -19,12 +19,11 @@
 
 use std::io;
 use std::ptr;
-use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::error::TerminalError;
-use super::guard;
-use super::screen;
-use super::tty::TerminalSnapshot;
+use super::terminal;
+use super::escapes;
 
 
 // ╭────────────────╮
@@ -37,8 +36,6 @@ const HANDLED_SIGNALS: [libc::c_int; 3] = [
     libc::SIGTERM,
 ];
 
-/// Raw pointer to the active snapshot, null when no guard is active.
-static SNAPSHOT_PTR: AtomicPtr<TerminalSnapshot> = AtomicPtr::new(ptr::null_mut());
 
 /// Signal-safe sentinel for whether handlers are installed.
 static HANDLERS_INSTALLED: AtomicBool = AtomicBool::new(false);
@@ -53,18 +50,17 @@ static HANDLERS_INSTALLED: AtomicBool = AtomicBool::new(false);
 /// Because every function call must be `async-signal-safe` (POSIX), we are unable to rely on the
 /// guard's built-in `restore()`, and must manually rebuild it.
 extern "C" fn signal_handler(signal: libc::c_int) {
-    // skip if guard already marked for release (idempotent)
-    if !guard::kill() { return; }
-
-    let snapshot_ptr = SNAPSHOT_PTR.load(Ordering::Acquire);
-
+    let snapshot_ptr = terminal::clear_snapshot();
     if !snapshot_ptr.is_null() {
         unsafe {
             let snapshot = &*snapshot_ptr;
 
             // attempt exit of the alternate screen buffer
-            // internally, this is just a thin wrapper on libc::write(), so it's safe
-            let _ = screen::exit_alt_screen(snapshot.fd);
+            libc::write(
+                snapshot.fd,
+                escapes::EXIT_ALT_SCREEN.as_ptr() as *const _,
+                escapes::EXIT_ALT_SCREEN.len()
+            );
 
             // restore terminal state
             libc::tcflush(snapshot.fd, libc::TCIFLUSH); // drop input queue
@@ -89,10 +85,6 @@ extern "C" fn signal_handler(signal: libc::c_int) {
 // ╭───────────────╮
 // │    UTILITY    │
 // ╰───────────────╯
-
-// ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-//      handler
-// ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
 /// Installs signal handler via `sigaction` to capture `SIGINT`, `SIGTERM`, etc.
 ///
@@ -156,18 +148,4 @@ pub(crate) fn uninstall_handlers() -> Result<(), TerminalError> {
 
     HANDLERS_INSTALLED.store(false, Ordering::Release);
     Ok(())
-}
-
-// ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-//      snapshot pointer
-// ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
-
-/// Exposes access to the snapshot pointer so that `TerminalGuard` may set it.
-pub(crate) fn store_snapshot(ptr: *mut TerminalSnapshot) {
-    SNAPSHOT_PTR.store(ptr, Ordering::Release);
-}
-
-/// Clears the snapshot pointer (and returns it) (idempotent).
-pub(crate) fn clear_snapshot() -> *mut TerminalSnapshot {
-    SNAPSHOT_PTR.swap(ptr::null_mut(), Ordering::AcqRel)
 }
