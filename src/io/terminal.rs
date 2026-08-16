@@ -152,10 +152,36 @@ impl Terminal {
     // ·    cursor    ·
     // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
-    pub fn move_cursor(&mut self, x: u16, y: u16) -> Result<(), TerminalError> {
-        let cmd = self.cursor.move_to(x, y);
+    pub fn move_cursor_to(&mut self, x: u16, y: u16) -> Result<(), TerminalError> {
+        let cmd = self.cursor.move_to(
+            x,
+            y,
+            self.cols.saturating_sub(1),
+            self.rows.saturating_sub(1)
+        );
+
         self.tty.write_raw(&cmd)?;
-        
+        Ok(())
+    }
+
+    pub fn move_cursor_to_column(&mut self, x: u16) -> Result<(), TerminalError> {
+        let cmd = self.cursor.move_to_column(x, self.cols.saturating_sub(1));
+        self.tty.write_raw(&cmd)?;
+
+        Ok(())
+    }
+
+    pub fn move_cursor_to_row(&mut self, y: u16) -> Result<(), TerminalError> {
+        let cmd = self.cursor.move_to_row(y, self.rows.saturating_sub(1));
+        self.tty.write_raw(&cmd)?;
+
+        Ok(())
+    }
+
+    pub fn save_cursor(&mut self) { self.cursor.save(); }
+
+    pub fn restore_cursor(&mut self) -> Result<(), TerminalError> {
+        if let Some(cmd) = self.cursor.restore() { self.tty.write_raw(&cmd)?; }
         Ok(())
     }
 
@@ -302,5 +328,3 @@ fn unpack_dimensions(pack: u32) -> Option<(u16, u16)> {
     if pack == 0 { return None; }
     Some(((pack >> 16) as u16, pack as u16))
 }
-
-
