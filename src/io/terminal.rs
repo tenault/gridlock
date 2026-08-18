@@ -24,7 +24,7 @@ use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 
 use super::cursor::VirtualCursor;
 use super::error::TerminalError;
-use super::escapes;
+use super::escape;
 use super::signal;
 use super::tty::TTY;
 
@@ -82,7 +82,7 @@ impl Terminal {
 
         // ╶╶╶╶╶ construct or error ╴╴╴╴╴
 
-        match Self::construct() {
+        match Self::_construct() {
             Ok(terminal) => Ok(terminal),
             Err(e) => {
                 TERMINAL_ACTIVE.store(false, Ordering::Release);
@@ -93,7 +93,7 @@ impl Terminal {
 
     // ───── INTERNAL ─────
 
-    fn construct() -> Result<Self, TerminalError> {
+    fn _construct() -> Result<Self, TerminalError> {
 
         // ╶╶╶╶╶ acquire terminal state ╴╴╴╴╴
 
@@ -110,7 +110,7 @@ impl Terminal {
         // ╶╶╶╶╶ configure terminal ╴╴╴╴╴
 
         tty.uncook()?;
-        tty.write_raw(escapes::ENTER_ALT_SCREEN)?;
+        tty.write_raw(escape::ENTER_ALT_SCREEN)?;
 
         // ╶╶╶╶╶ save snapshot (for restoration) ╴╴╴╴╴
 
@@ -139,7 +139,7 @@ impl Terminal {
     // ·    terminal i/o    ·
     // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
-    pub fn read(&self, mut buf: &mut [u8]) -> Result<usize, TerminalError> {
+    pub fn read(&self, buf: &mut [u8]) -> Result<usize, TerminalError> {
         self.tty.read_raw(buf)
     }
 
@@ -153,27 +153,28 @@ impl Terminal {
     // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
     pub fn move_cursor_to(&mut self, x: u16, y: u16) -> Result<(), TerminalError> {
-        let cmd = self.cursor.move_to(
+        if let Some(esc) = self.cursor.move_to(
             x,
             y,
             self.cols.saturating_sub(1),
-            self.rows.saturating_sub(1)
-        );
+            self.rows.saturating_sub(1),
+        ) { self.tty.write_raw(&esc)?; }
 
-        self.tty.write_raw(&cmd)?;
         Ok(())
     }
 
     pub fn move_cursor_to_column(&mut self, x: u16) -> Result<(), TerminalError> {
-        let cmd = self.cursor.move_to_column(x, self.cols.saturating_sub(1));
-        self.tty.write_raw(&cmd)?;
+        if let Some(esc) = self.cursor.move_to_column(x, self.cols.saturating_sub(1)) {
+            self.tty.write_raw(&esc)?;
+        }
 
         Ok(())
     }
 
     pub fn move_cursor_to_row(&mut self, y: u16) -> Result<(), TerminalError> {
-        let cmd = self.cursor.move_to_row(y, self.rows.saturating_sub(1));
-        self.tty.write_raw(&cmd)?;
+        if let Some(esc) = self.cursor.move_to_row(y, self.rows.saturating_sub(1)) {
+            self.tty.write_raw(&esc)?;
+        }
 
         Ok(())
     }
@@ -181,7 +182,7 @@ impl Terminal {
     pub fn save_cursor(&mut self) { self.cursor.save(); }
 
     pub fn restore_cursor(&mut self) -> Result<(), TerminalError> {
-        if let Some(cmd) = self.cursor.restore() { self.tty.write_raw(&cmd)?; }
+        if let Some(esc) = self.cursor.restore() { self.tty.write_raw(&esc)?; }
         Ok(())
     }
 
@@ -193,7 +194,7 @@ impl Terminal {
     pub fn query_dimensions(&mut self) -> Result<(u16, u16), TerminalError> {
         let (rows, cols) = self.tty.query_winsize()?;
         
-        WINSIZE_CACHE.store(pack_dimensions(rows, cols), Ordering::Release);
+        WINSIZE_CACHE.store(_pack_dimensions(rows, cols), Ordering::Release);
         self.rows = rows;
         self.cols = cols;
         
@@ -202,7 +203,7 @@ impl Terminal {
 
     /// Returns the cached terminal dimensions, avoiding a syscall.
     pub fn get_cached_dimensions() -> Option<(u16, u16)> {
-        unpack_dimensions(WINSIZE_CACHE.load(Ordering::Acquire))
+        _unpack_dimensions(WINSIZE_CACHE.load(Ordering::Acquire))
     }
 
     // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
@@ -213,14 +214,14 @@ impl Terminal {
 
     /// Explicitly restores the terminal and releases the guard early.
     pub fn release(mut self) -> Result<(), TerminalError> {
-        let err = self.restore();
+        let err = self._restore();
         std::mem::forget(self); // prevents double-drop since we took ownership
         return err;
     }
 
     // ───── INTERNAL ─────
 
-    fn restore(&mut self) -> Result<(), TerminalError> {
+    fn _restore(&mut self) -> Result<(), TerminalError> {
 
         // ╶╶╶╶╶ check if already restored ╴╴╴╴╴
 
@@ -244,7 +245,7 @@ impl Terminal {
 
         // ╶╶╶╶╶ restore terminal ╴╴╴╴╴
 
-        self.tty.write_raw(escapes::EXIT_ALT_SCREEN)?;
+        self.tty.write_raw(escape::EXIT_ALT_SCREEN)?;
         self.tty.set_termios(&self.snapshot.termios)?;
         self.tty.close()?;
 
@@ -259,7 +260,7 @@ impl Terminal {
 // ╰──────────────────╯
 
 impl Drop for Terminal {
-    fn drop(&mut self) { let _ = self.restore(); } // swallow errors, we just wanna restore
+    fn drop(&mut self) { let _ = self._restore(); } // swallow errors, we just wanna restore
 }
 
 
@@ -320,11 +321,11 @@ pub(crate) fn invalidate_winsize_cache() { WINSIZE_CACHE.store(0, Ordering::Rele
 // │    UTILITY    │
 // ╰───────────────╯
 
-/// Packs (rows, cols) into one `u32` for atomic storage.
-fn pack_dimensions(rows: u16, cols: u16) -> u32 { ((rows as u32) << 16) | (cols as u32) }
+/// Packs (rows, cols) into one `u16` for atomic storage.
+const fn _pack_dimensions(rows: u16, cols: u16) -> u32 { ((rows as u32) << 16) | (cols as u32) }
 
 /// Unpacks a `u32` into (rows, cols), or returns `None` if zeroed.
-fn unpack_dimensions(pack: u32) -> Option<(u16, u16)> {
+const fn _unpack_dimensions(pack: u32) -> Option<(u16, u16)> {
     if pack == 0 { return None; }
     Some(((pack >> 16) as u16, pack as u16))
 }

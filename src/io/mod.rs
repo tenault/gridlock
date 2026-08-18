@@ -18,11 +18,13 @@
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
 mod cursor;
+mod color;
 mod error;
-mod escapes;
+mod escape;
 mod signal;
 mod terminal;
 mod tty;
 
+pub use color::Color;
 pub use error::TerminalError;
 pub use terminal::Terminal;

@@ -23,7 +23,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::error::TerminalError;
 use super::terminal;
-use super::escapes;
+use super::escape;
 
 
 // ╭────────────────╮
@@ -58,8 +58,8 @@ extern "C" fn signal_handler(signal: libc::c_int) {
             // attempt exit of the alternate screen buffer
             libc::write(
                 snapshot.fd,
-                escapes::EXIT_ALT_SCREEN.as_ptr() as *const _,
-                escapes::EXIT_ALT_SCREEN.len()
+                escape::EXIT_ALT_SCREEN.as_ptr() as *const _,
+                escape::EXIT_ALT_SCREEN.len()
             );
 
             // restore terminal state
