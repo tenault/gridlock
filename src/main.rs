@@ -17,7 +17,7 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
-use gridlock::Terminal;
+use gridlock::{Color, Terminal, TerminalStyle};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut term = Terminal::acquire().expect("Failed to acquire terminal.");
@@ -32,13 +32,100 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 term.move_cursor_to(x as u16, y as u16)?;
 
-                for &b in &buf[..n] {
-                    term.write(&format!("{:02x}", b));
+                match buf[0] {
+                    b'1' => {
+                        let style = TerminalStyle::new()
+                            .bold()
+                            .fg(Color::red())
+                            .build();
+
+                        term.apply_style(&style)?;
+                        term.write("bold red")?;
+                    },
+                    b'2' => {
+                        let style = TerminalStyle::new()
+                            .dim()
+                            .fg(Color::green())
+                            .build();
+
+                        term.apply_style(&style)?;
+                        term.write("dim green")?;
+                    },
+                    b'3' => {
+                        let style = TerminalStyle::new()
+                            .italic()
+                            .fg(Color::yellow())
+                            .build();
+
+                        term.apply_style(&style)?;
+                        term.write("italic yellow")?;
+                    },
+                    b'4' => {
+                        let style = TerminalStyle::new()
+                            .underline()
+                            .fg(Color::blue())
+                            .build();
+
+                        term.apply_style(&style)?;
+                        term.write("underlined blue")?;
+                    },
+                    b'5' => {
+                        let style = TerminalStyle::new()
+                            .blink()
+                            .fg(Color::magenta())
+                            .build();
+
+                        term.apply_style(&style)?;
+                        term.write("blinking magenta")?;
+                    },
+                    b'6' => {
+                        let style = TerminalStyle::new()
+                            .fast_blink()
+                            .fg(Color::cyan())
+                            .build();
+
+                        term.apply_style(&style)?;
+                        term.write("fast blinking cyan")?;
+                    },
+                    b'7' => {
+                        let style = TerminalStyle::new()
+                            .fg(Color::bright_red())
+                            .reverse()
+                            .build();
+
+                        term.apply_style(&style)?;
+                        term.write("reversed red")?;
+                    },
+                    b'8' => {
+                        let style = TerminalStyle::new()
+                            .concealed()
+                            .build();
+
+                        term.apply_style(&style);
+                        term.write("concealed")?;
+                    },
+                    b'9' => {
+                        let style = TerminalStyle::new()
+                            .strikethrough()
+                            .fg(Color::bright_green())
+                            .build();
+
+                        term.apply_style(&style);
+                        term.write("struckthrough green")?;
+                    }
+                    b'0' | b'r' => {
+                        let style = TerminalStyle::new().build();
+                        term.write("RESET")?;
+                    }
+                    b'q' => break,
+                    _ => {},
                 }
             }
             _ => {}
         }
     }
+
+    Ok(())
 }
 
 // mini-RNG (because rust is too prideful to include it in std::)

@@ -17,6 +17,10 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
+// ╭───────────────────╮
+// │    ENVIRONMENT    │
+// ╰───────────────────╯
+
 use std::io;
 use std::os::unix::io::RawFd;
 
@@ -163,6 +167,15 @@ impl TTY {
         self.set_termios(&t)
     }
 
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    accessors    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+
+    /// Returns the controlling terminal file descriptor, or errors if closed.
+    pub(crate) fn fd(&self) -> Result<RawFd, TerminalError> {
+        self.fd.ok_or(TerminalError::InvalidFd)
+    }
+
     // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
     // ·    utility    ·
     // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
@@ -180,15 +193,6 @@ impl TTY {
         }
 
         Ok((ws.ws_row, ws.ws_col))
-    }
-
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    accessors    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
-
-    /// Returns the controlling terminal file descriptor, or errors if closed.
-    pub(crate) fn fd(&self) -> Result<RawFd, TerminalError> {
-        self.fd.ok_or(TerminalError::InvalidFd)
     }
 
     // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
