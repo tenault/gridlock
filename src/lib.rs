@@ -17,6 +17,10 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
+// ╭───────────────────╮
+// │    ENVIRONMENT    │
+// ╰───────────────────╯
+
 pub mod io;
 
-pub use io::{Color, Terminal, TerminalError};
+pub use io::{Color, Terminal, TerminalError, TerminalStyle};
