@@ -17,21 +17,27 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
+// ╭───────────────────╮
+// │    ENVIRONMENT    │
+// ╰───────────────────╯
+
 use std::io;
 use std::marker::PhantomData;
 use std::os::unix::io::RawFd;
 use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 
-use super::cursor::VirtualCursor;
-use super::error::TerminalError;
 use super::escape;
 use super::signal;
+use super::color::Color;
+use super::cursor::VirtualCursor;
+use super::error::TerminalError;
+use super::style::SGR;
 use super::tty::TTY;
 
 
-// ╭────────────────╮
-// │    CONTROLS    │
-// ╰────────────────╯
+// ╭───────────────╮
+// │    SYMBOLS    │
+// ╰───────────────╯
 
 /// Idempotency flag, enforces instance singleton and ensures single restore across all exit paths.
 static TERMINAL_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -57,8 +63,9 @@ static WINSIZE_CACHE: AtomicU32 = AtomicU32::new(0);
 /// Owns the terminal snapshot and guarantees state restoration on drop.
 pub struct Terminal {
     tty: TTY,
-    cursor: VirtualCursor,
     snapshot: TerminalSnapshot,
+    cursor: VirtualCursor,
+    style: SGR,
     _marker: PhantomData<*mut ()>, // constrains !Send + !Sync
 
     pub rows: u16,
@@ -77,7 +84,7 @@ impl Terminal {
     pub fn acquire() -> Result<Self, TerminalError> {
 
         // ╶╶╶╶╶ enforce instance singleton ╴╴╴╴╴
-        
+
         if TERMINAL_ACTIVE.swap(true, Ordering::AcqRel) { return Err(TerminalError::IllegalGuard); }
 
         // ╶╶╶╶╶ construct or error ╴╴╴╴╴
@@ -126,8 +133,9 @@ impl Terminal {
 
         Ok(Self {
             tty,
-            cursor: VirtualCursor::new(),
             snapshot,
+            cursor: VirtualCursor::new(),
+            style: SGR::new(),
             _marker: PhantomData,
 
             rows,
@@ -143,9 +151,8 @@ impl Terminal {
         self.tty.read_raw(buf)
     }
 
-    pub fn write(&self, s: &str) -> Result<(), TerminalError> {
-        self.tty.write_raw(s.as_bytes())?;
-        Ok(())
+    pub fn write(&self, s: &str) -> Result<usize, TerminalError> {
+        self.tty.write_raw(s.as_bytes())
     }
 
     // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
@@ -186,6 +193,20 @@ impl Terminal {
         Ok(())
     }
 
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    style    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+
+    /// Applies a given style, writing the smallest possible escape delta.
+    pub fn apply_style(&mut self, target: &SGR) -> Result<(), TerminalError> {
+        if let Some(esc) = target.delta_from(&self.style) {
+            self.tty.write_raw(&esc)?;
+            self.style = *target;
+        }
+
+        Ok(())
+    }
+
     // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
     // ·    utility    ·
     // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
@@ -193,11 +214,11 @@ impl Terminal {
     /// Queries the terminal dimensions via `ioctl(TIOCGWINSZ)`.
     pub fn query_dimensions(&mut self) -> Result<(u16, u16), TerminalError> {
         let (rows, cols) = self.tty.query_winsize()?;
-        
+
         WINSIZE_CACHE.store(_pack_dimensions(rows, cols), Ordering::Release);
         self.rows = rows;
         self.cols = cols;
-        
+
         Ok((rows, cols))
     }
 
@@ -233,7 +254,7 @@ impl Terminal {
 
         // if signal handler claimed snapshot, this is a safe no-op...
         let ptr = clear_snapshot();
-        
+
         // ...otherwise, we free what we leaked during ::acquire()
         if !ptr.is_null() {
             unsafe { let _ = Box::from_raw(ptr); }
@@ -245,22 +266,13 @@ impl Terminal {
 
         // ╶╶╶╶╶ restore terminal ╴╴╴╴╴
 
-        self.tty.write_raw(escape::EXIT_ALT_SCREEN)?;
+        self.tty.write_raw(escape::EXIT_ALT_SCREEN)?; // todo, make cleaner and add SGR reset
         self.tty.set_termios(&self.snapshot.termios)?;
         self.tty.close()?;
 
         Ok(())
     }
 
-}
-
-
-// ╭──────────────────╮
-// │    EXTENSIONS    │
-// ╰──────────────────╯
-
-impl Drop for Terminal {
-    fn drop(&mut self) { let _ = self._restore(); } // swallow errors, we just wanna restore
 }
 
 
@@ -328,4 +340,13 @@ const fn _pack_dimensions(rows: u16, cols: u16) -> u32 { ((rows as u32) << 16) |
 const fn _unpack_dimensions(pack: u32) -> Option<(u16, u16)> {
     if pack == 0 { return None; }
     Some(((pack >> 16) as u16, pack as u16))
+}
+
+
+// ╭──────────────────╮
+// │    EXTENSIONS    │
+// ╰──────────────────╯
+
+impl Drop for Terminal {
+    fn drop(&mut self) { let _ = self._restore(); } // swallow errors, we just wanna restore
 }

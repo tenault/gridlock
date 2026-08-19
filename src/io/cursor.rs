@@ -17,7 +17,11 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
-use super::escape::{self, Escapable, EscapeContext, CursorContext};
+// ╭───────────────────╮
+// │    ENVIRONMENT    │
+// ╰───────────────────╯
+
+use super::escape::{Escapable, CursorContext};
 
 
 // ╭──────────────────────╮
@@ -28,7 +32,6 @@ pub(crate) struct VirtualCursor {
     x: u16,
     y: u16,
     stack: Vec<(u16, u16)>,
-    _ctx: CursorContext,
 }
 
 impl VirtualCursor {
@@ -38,16 +41,8 @@ impl VirtualCursor {
     // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
     pub(crate) fn new() -> Self {
-        Self { x: 0, y: 0, stack: Vec::new(), _ctx: CursorContext::Null }
+        Self { x: 0, y: 0, stack: Vec::new() }
     }
-
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    accessors    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
-
-    pub(crate) fn locate(&self) -> (u16, u16) { (self.x, self.y) }
-
-    pub(crate) fn stack_depth(&self) -> usize { self.stack.len() }
 
     // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
     // ·    movement    ·
@@ -58,40 +53,43 @@ impl VirtualCursor {
         let nx = x.min(max_x);
         let ny = y.min(max_y);
 
-        let ctx = match ( self.x == nx, self.y == ny ) {
-            (true, true)   => CursorContext::Null,
-            (true, false)  => CursorContext::Row { y: ny },
-            (false, true)  => CursorContext::Column { x: nx },
-            (false, false) => CursorContext::Point { x: nx, y: ny },
+        let ctx = CursorContext {
+            x: if self.x != nx { Some(nx) } else { None },
+            y: if self.y != ny { Some(ny) } else { None },
         };
 
         self.x = nx;
         self.y = ny;
-        self._ctx = ctx;
 
-        self.get_escape()
+        ctx.get_escape()
     }
 
     /// Move cursor via CHA
     pub(crate) fn move_to_column(&mut self, x: u16, max: u16) -> Option<Vec<u8>> {
         let nx = x.min(max);
-        let ctx = if self.x == nx { CursorContext::Null } else { CursorContext::Column { x: nx } };
+        
+        let ctx = CursorContext {
+            x: if self.x != nx { Some(nx) } else { None },
+            y: None,
+        };
 
         self.x = nx;
-        self._ctx = ctx;
 
-        self.get_escape()
+        ctx.get_escape()
     }
 
     /// Move cursor via VPA
     pub(crate) fn move_to_row(&mut self, y: u16, max: u16) -> Option<Vec<u8>> {
         let ny = y.min(max);
-        let ctx = if self.y == ny { CursorContext::Null } else { CursorContext::Row { y: ny } };
+
+        let ctx = CursorContext {
+            x: None,
+            y: if self.y != ny { Some(ny) } else { None },
+        };
 
         self.y = ny;
-        self._ctx = ctx;
 
-        self.get_escape()
+        ctx.get_escape()
     }
 
     // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
@@ -104,29 +102,25 @@ impl VirtualCursor {
     /// Pops most recent saved position off internal stack.
     pub(crate) fn restore(&mut self) -> Option<Vec<u8>> {
         if let Some((nx, ny)) = self.stack.pop() {
-            let ctx = match ( self.x == nx, self.y == ny ) {
-                (true, true)   => CursorContext::Null,
-                (true, false)  => CursorContext::Row { y: ny },
-                (false, true)  => CursorContext::Column { x: nx },
-                (false, false) => CursorContext::Point { x: nx, y: ny },
+            let ctx = CursorContext {
+                x: if self.x != nx { Some(nx) } else { None },
+                y: if self.y != ny { Some(ny) } else { None },
             };
 
             self.x = nx;
             self.y = ny;
-            self._ctx = ctx;
 
-            self.get_escape()
+            ctx.get_escape()
         } else {
             None
         }
     }
-}
 
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    accessors    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
-// ╭──────────────────╮
-// │    EXTENSIONS    │
-// ╰──────────────────╯
+    pub(crate) fn locate(&self) -> (u16, u16) { (self.x, self.y) }
 
-impl Escapable for VirtualCursor {
-    fn get_escape(&self) -> Option<Vec<u8>> { escape::build(EscapeContext::Cursor(self._ctx)) }
+    pub(crate) fn stack_depth(&self) -> usize { self.stack.len() }
 }
