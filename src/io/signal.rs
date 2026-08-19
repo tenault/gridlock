@@ -17,25 +17,28 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
+// ╭───────────────────╮
+// │    ENVIRONMENT    │
+// ╰───────────────────╯
+
 use std::io;
 use std::ptr;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use super::error::TerminalError;
-use super::terminal;
 use super::escape;
+use super::terminal;
+use super::error::TerminalError;
 
 
-// ╭────────────────╮
-// │    CONTROLS    │
-// ╰────────────────╯
+// ╭───────────────╮
+// │    SYMBOLS    │
+// ╰───────────────╯
 
 const HANDLED_SIGNALS: [libc::c_int; 3] = [
     libc::SIGABRT,
     libc::SIGINT,
     libc::SIGTERM,
 ];
-
 
 /// Signal-safe sentinel for whether handlers are installed.
 static HANDLERS_INSTALLED: AtomicBool = AtomicBool::new(false);

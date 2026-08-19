@@ -80,3 +80,12 @@ impl Color {
 
     // HSL <-> RGB and much more coming in a future update...
 }
+
+
+// ╭──────────────────╮
+// │    EXTENSIONS    │
+// ╰──────────────────╯
+
+impl Default for Color {
+    fn default() -> Self { Self::Default }
+}
