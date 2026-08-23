@@ -83,11 +83,11 @@ impl SGR {
         let off_attrs = prev_attrs & !self_attrs;
 
         // heuristic: reset + re-emit vs delta
-        if (1 + self_attrs.count_ones()) < (on_attrs.count_ones() + off_attrs.count_ones()) {
+        if (1 + self_attrs.count_ones()) <= (on_attrs.count_ones() + off_attrs.count_ones()) {
             let ctx = StyleContext {
                 reset: true,
                 off:   None,
-                on:    Some(self_attrs),
+                on: if self_attrs != 0 { Some(self_attrs) } else { None },
                 fg: if self.fg != Color::Default { Some(self.fg) } else { None },
                 bg: if self.bg != Color::Default { Some(self.bg) } else { None },
             };
