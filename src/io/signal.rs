@@ -17,25 +17,28 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
+// ╭───────────────────╮
+// │    ENVIRONMENT    │
+// ╰───────────────────╯
+
 use std::io;
 use std::ptr;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use super::error::TerminalError;
+use super::escape;
 use super::terminal;
-use super::escapes;
+use super::error::TerminalError;
 
 
-// ╭────────────────╮
-// │    CONTROLS    │
-// ╰────────────────╯
+// ╭───────────────╮
+// │    SYMBOLS    │
+// ╰───────────────╯
 
 const HANDLED_SIGNALS: [libc::c_int; 3] = [
     libc::SIGABRT,
     libc::SIGINT,
     libc::SIGTERM,
 ];
-
 
 /// Signal-safe sentinel for whether handlers are installed.
 static HANDLERS_INSTALLED: AtomicBool = AtomicBool::new(false);
@@ -58,8 +61,8 @@ extern "C" fn signal_handler(signal: libc::c_int) {
             // attempt exit of the alternate screen buffer
             libc::write(
                 snapshot.fd,
-                escapes::EXIT_ALT_SCREEN.as_ptr() as *const _,
-                escapes::EXIT_ALT_SCREEN.len()
+                escape::EXIT_ALT_SCREEN.as_ptr() as *const _,
+                escape::EXIT_ALT_SCREEN.len()
             );
 
             // restore terminal state

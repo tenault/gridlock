@@ -17,12 +17,20 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
+// ╭───────────────────╮
+// │    ENVIRONMENT    │
+// ╰───────────────────╯
+
+mod color;
 mod cursor;
 mod error;
-mod escapes;
+mod escape;
 mod signal;
+mod style;
 mod terminal;
 mod tty;
 
+pub use color::Color;
 pub use error::TerminalError;
+pub use style::TerminalStyle;
 pub use terminal::Terminal;
