@@ -89,32 +89,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     },
                     b'7' => {
                         let style = TerminalStyle::new()
-                            .fg(Color::bright_red())
-                            .reverse()
+                            .bold()
+                            .italic()
+                            .fg(Color::magenta())
+                            .bg(Color::red())
                             .build();
 
                         term.apply_style(&style)?;
-                        term.write("reversed red")?;
+                        term.write("one")?;
                     },
                     b'8' => {
                         let style = TerminalStyle::new()
-                            .concealed()
+                            .bold()
+                            .italic()
+                            .underline()
+                            .fg(Color::magenta())
+                            .bg(Color::blue())
                             .build();
 
-                        term.apply_style(&style);
-                        term.write("concealed")?;
+                        term.apply_style(&style)?;
+                        term.write("two")?;
                     },
                     b'9' => {
                         let style = TerminalStyle::new()
+                            .bold()
+                            .italic()
+                            .underline()
                             .strikethrough()
-                            .fg(Color::bright_green())
+                            .fg(Color::red())
+                            .bg(Color::blue())
                             .build();
 
                         term.apply_style(&style);
-                        term.write("struckthrough green")?;
+                        term.write("three")?;
                     }
                     b'0' | b'r' => {
                         let style = TerminalStyle::new().build();
+                        term.apply_style(&style)?;
                         term.write("RESET")?;
                     }
                     b'q' => break,
