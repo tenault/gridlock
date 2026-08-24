@@ -27,111 +27,53 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         match term.read(&mut buf) {
             Ok(n) if n > 0 => {
+                if buf[0] == b'q' || buf[0] == b'Q' { break; }
+
                 let x = rand(&(term.cols as usize), &mut xsr);
                 let y = rand(&(term.rows as usize), &mut xsr);
 
+                let mut style = TerminalStyle::new();
+
+                if xsr.next_normal() < 0.3 { style = style.bold(); }
+                if xsr.next_normal() < 0.3 { style = style.dim(); }
+                if xsr.next_normal() < 0.3 { style = style.italic(); }
+                if xsr.next_normal() < 0.3 { style = style.underline(); }
+                if xsr.next_normal() < 0.3 { style = style.blink(); }
+                if xsr.next_normal() < 0.3 { style = style.reverse(); }
+                if xsr.next_normal() < 0.3 { style = style.strikethrough(); }
+
+                let pick_fg = xsr.next_normal();
+                let fg = if pick_fg < 0.3 {
+                    Color::default()
+                } else if pick_fg < 0.6 {
+                    Color::indexed(rand(&256, &mut xsr) as u8)
+                } else {
+                    Color::rgb(
+                        rand(&256, &mut xsr) as u8,
+                        rand(&256, &mut xsr) as u8,
+                        rand(&256, &mut xsr) as u8,
+                    )
+                };
+
+                let pick_bg = xsr.next_normal();
+                let bg = if pick_bg < 0.3 {
+                    Color::default()
+                } else if pick_bg < 0.6 {
+                    Color::indexed(rand(&256, &mut xsr) as u8)
+                } else {
+                    Color::rgb(
+                        rand(&256, &mut xsr) as u8,
+                        rand(&256, &mut xsr) as u8,
+                        rand(&256, &mut xsr) as u8,
+                    )
+                };
+
+                style = style.fg(fg).bg(bg);
+
                 term.move_cursor_to(x as u16, y as u16)?;
-
-                match buf[0] {
-                    b'1' => {
-                        let style = TerminalStyle::new()
-                            .bold()
-                            .fg(Color::red())
-                            .build();
-
-                        term.apply_style(&style)?;
-                        term.write("bold red")?;
-                    },
-                    b'2' => {
-                        let style = TerminalStyle::new()
-                            .dim()
-                            .fg(Color::green())
-                            .build();
-
-                        term.apply_style(&style)?;
-                        term.write("dim green")?;
-                    },
-                    b'3' => {
-                        let style = TerminalStyle::new()
-                            .italic()
-                            .fg(Color::yellow())
-                            .build();
-
-                        term.apply_style(&style)?;
-                        term.write("italic yellow")?;
-                    },
-                    b'4' => {
-                        let style = TerminalStyle::new()
-                            .underline()
-                            .fg(Color::blue())
-                            .build();
-
-                        term.apply_style(&style)?;
-                        term.write("underlined blue")?;
-                    },
-                    b'5' => {
-                        let style = TerminalStyle::new()
-                            .blink()
-                            .fg(Color::magenta())
-                            .build();
-
-                        term.apply_style(&style)?;
-                        term.write("blinking magenta")?;
-                    },
-                    b'6' => {
-                        let style = TerminalStyle::new()
-                            .fast_blink()
-                            .fg(Color::cyan())
-                            .build();
-
-                        term.apply_style(&style)?;
-                        term.write("fast blinking cyan")?;
-                    },
-                    b'7' => {
-                        let style = TerminalStyle::new()
-                            .bold()
-                            .italic()
-                            .fg(Color::magenta())
-                            .bg(Color::red())
-                            .build();
-
-                        term.apply_style(&style)?;
-                        term.write("one")?;
-                    },
-                    b'8' => {
-                        let style = TerminalStyle::new()
-                            .bold()
-                            .italic()
-                            .underline()
-                            .fg(Color::magenta())
-                            .bg(Color::blue())
-                            .build();
-
-                        term.apply_style(&style)?;
-                        term.write("two")?;
-                    },
-                    b'9' => {
-                        let style = TerminalStyle::new()
-                            .bold()
-                            .italic()
-                            .underline()
-                            .strikethrough()
-                            .fg(Color::red())
-                            .bg(Color::blue())
-                            .build();
-
-                        term.apply_style(&style);
-                        term.write("three")?;
-                    }
-                    b'0' | b'r' => {
-                        let style = TerminalStyle::new().build();
-                        term.apply_style(&style)?;
-                        term.write("RESET")?;
-                    }
-                    b'q' => break,
-                    _ => {},
-                }
-            }
+                term.apply_style(&style.build())?;
+                term.write("hello, gridlock")?;
+            },
             _ => {}
         }
     }
@@ -142,7 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 // mini-RNG (because rust is too prideful to include it in std::)
 struct XORShiftRNG { state: u64 }
 impl XORShiftRNG {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             state: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -151,7 +93,7 @@ impl XORShiftRNG {
         }
     }
 
-    pub fn next(&mut self) -> u64 {
+    fn next(&mut self) -> u64 {
         let mut x = self.state;
         x ^= x << 13;
         x ^= x >> 7;
@@ -159,9 +101,11 @@ impl XORShiftRNG {
         self.state = x;
         x
     }
+
+    fn next_normal(&mut self) -> f64 { ((self.next() >> 11) as f64) / ((1u64 << 53) as f64) }
 }
 
-pub fn rand(max: &usize, xsr: &mut XORShiftRNG) -> usize {
+fn rand(max: &usize, xsr: &mut XORShiftRNG) -> usize {
     let cap = usize::MAX - (usize::MAX % *max as usize);
 
     loop { // it'll find a number... eventually...
