@@ -65,21 +65,23 @@ impl TTY {
     pub(crate) fn read_raw(&self, buf: &mut [u8]) -> Result<usize, TerminalError> {
         let fd = self.fd()?;
 
-        let count = unsafe {
-            libc::read(fd, buf.as_mut_ptr() as *mut _, buf.len())
-        };
+        loop {
+            let count = unsafe {
+                libc::read(fd, buf.as_mut_ptr() as *mut _, buf.len())
+            };
 
-        if count < 0 {
-            let err = io::Error::last_os_error();
-            if err.raw_os_error() == Some(libc::EINTR) { return self.read_raw(buf); }
-            return Err(TerminalError::Read {
-                fd,
-                read: 0,
-                source: err,
-            });
+            if count < 0 {
+                let err = io::Error::last_os_error();
+                if err.raw_os_error() == Some(libc::EINTR) { continue; }
+                return Err(TerminalError::Read {
+                    fd,
+                    read: 0,
+                    source: err,
+                });
+            }
+        
+            return Ok(count as usize);
         }
-
-        Ok(count as usize)
     }
 
     /// Writes all bytes to the tty fd, with `EINTR` handling and partial-write recovery.
