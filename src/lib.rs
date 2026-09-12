@@ -17,10 +17,90 @@
 // │                                                                           │
 // ╰───────────────────────────────────────────────────────────────────────────╯
 
+//! # Gridlock
+//!
+//! A new kind of terminal library for modern TUIs.
+//!
+//! ## Overview
+//!
+//! Currently, `gridlock` provides a safe abstraction for terminal I/O on Unix systems, including:
+//! - State acquisition and restoration (termios, alternate screen)
+//! - Cursor movement
+//! - Text styling (attributes + colors)
+//! - Signal handling for mostly graceful interruptions
+//! - 256-color and 24-bit truecolor support
+//!
+//! ## Design Philosophy
+//!
+//! - __Safety__: The terminal is restored on every exit path, even on panics (leaves no trace)
+//! - __Performance__: Syscalls, escape sequences, and writes are minimized where possible
+//! - __Containment__: Avoids cruft and dependency bloat, preferring in-house code
+//! - __Unix-first__: Built for the future, refusing support for consumer-hostile operating systems
+//!
+//! ## Quick Start
+//!
+//! ```rust,no_run
+//! use gridlock::{Terminal, TerminalStyle, Color};
+//!
+//! fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let mut term = Terminal::acquire()?;
+//!
+//!     // Move cursor and set style
+//!     term.move_cursor_to(10, 5)?;
+//!
+//!     let style = TerminalStyle::new()
+//!         .bold()
+//!         .fg(Color::green())
+//!         .build();
+//!
+//!     term.apply_style(&style)?;
+//!     term.write("Hello gridlock!")?;
+//!
+//!     // Terminal restored on Drop
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Safety Considerations
+//!
+//! - Terminal restored on every exit path (normal, panic, or signal)
+//! - Signal handlers are `async-signal-safe` and can fire at any point
+//! - Multiple `Terminal::acquire()` calls fail with [`TerminalError::IllegalGuard`]
+//! - The `Terminal` struct is `!Send` and `!Sync` by design (owning the tty file descriptor)
+//!
+//! ## Architecture
+//!
+//! ```text
+//! lib.rs
+//! └── io/
+//!     ├── color.rs    // Color jazz (ANSI, 256, RGB)
+//!     ├── cursor.rs   // Virtual cursor tracking
+//!     ├── error.rs    // Error types
+//!     ├── escape.rs   // ANSI escape generation
+//!     ├── mod.rs      // Module exports
+//!     ├── signal.rs   // Signal handlers
+//!     ├── style.rs    // Text styling (SGR)
+//!     ├── terminal.rs // Main terminal interface
+//!     └── tty.rs      // Low-level TTY operations
+//! ```
+//!
+//! ## Platforms
+//!
+//! Supports all unix-like systems (Linux, macOS, BSD) via `/dev/tty` and POSIX interfaces. There is
+//! no planned support for Windows at this time.
+//!
+//! ## License
+//!
+//! Licensed under the Mozilla Public License v2.0. See LICENSE.md or <https://mozilla.org/MPL/2.0/>
+//! for details.
+//!
+//! [`TerminalError::IllegalGuard`]: crate::TerminalError::IllegalGuard
+
 // ╭───────────────────╮
 // │    ENVIRONMENT    │
 // ╰───────────────────╯
 
+/// Core I/O module for terminal operation.
 pub mod io;
 
 pub use io::{Color, Terminal, TerminalError, TerminalStyle};
