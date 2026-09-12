@@ -28,7 +28,6 @@ use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 
 use super::escape;
 use super::signal;
-use super::color::Color;
 use super::cursor::VirtualCursor;
 use super::error::TerminalError;
 use super::style::SGR;
