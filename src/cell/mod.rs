@@ -1,4 +1,4 @@
-// ╭─────────────────────────────────────────────────────────────────io/mod.rs─╮
+// ╭───────────────────────────────────────────────────────────────cell/mod.rs─╮
 // │                                                                           │
 // │                                ┏━┓    ┏━━┓              ┏━┓               │
 // │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
@@ -21,6 +21,9 @@
 // │    ENVIRONMENT    │
 // ╰───────────────────╯
 
-pub(crate) mod escape;
-pub(crate) mod signal;
-pub(crate) mod tty;
+pub(crate) mod color;
+pub(crate) mod cursor;
+pub(crate) mod style;
+
+pub use color::Color;
+pub use style::TerminalStyle;

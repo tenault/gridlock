@@ -25,9 +25,10 @@ use std::io;
 use std::ptr;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use super::escape;
-use super::terminal;
-use super::error::TerminalError;
+use crate::core::terminal;
+use crate::io::escape;
+
+use crate::TerminalError;
 
 
 // ╭───────────────╮

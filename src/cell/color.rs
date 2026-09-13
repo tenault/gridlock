@@ -1,4 +1,4 @@
-// ╭───────────────────────────────────────────────────────────────io/color.rs─╮
+// ╭─────────────────────────────────────────────────────────────cell/color.rs─╮
 // │                                                                           │
 // │                                ┏━┓    ┏━━┓              ┏━┓               │
 // │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
@@ -79,6 +79,51 @@ impl Color {
     // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
     // HSL <-> RGB and much more coming in a future update...
+
+    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
+    // ·    utility    ·
+    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+
+    /// Packs the color into a `u32` for storage in a `CellGrid` SoA lane.
+    ///
+    /// Because 24-bit RGB is the widest gamut terminals can display directly, any format beyond the
+    /// three core models (Default, Indexed, RGB) is converted lossy.
+    ///
+    /// - Top byte encodes variant: `0x00` = Default, `0x01` = Indexed, `0x02` = RGB
+    /// - `Default` packs `0x00000000...` (blank cell marker)
+    ///
+    /// ```text
+    ///  32              24                                            0
+    /// ╭┴───────────────┼─────────────────────────────────────────────┴╮
+    /// │  <color_type>  │               ┊   (payload)   ┊              │
+    /// ╰────────────────┴──────────────────────────────────────────────╯
+    /// ```
+    pub(crate) const fn pack(self) -> u32 {
+        match self {
+            Self::Default => 0,
+            Self::Indexed(n) => (1u32 << 24)
+                | (n as u32),
+            Self::RGB(r, g, b) => (2u32 << 24)
+                | ((r as u32) << 16)
+                | ((g as u32) << 8)
+                | (b as u32),
+        }
+    }
+
+    /// Unpacks a `CellGrid` SoA `u32` lane back into a Color variant.
+    pub(crate) const fn unpack(v: u32) -> Self {
+        let tag = (v >> 24) as u8;
+        match tag {
+            0 => Self::Default,
+            1 => Self::Indexed((v & 0xff) as u8),
+            2 => Self::RGB(
+                ((v >> 16) & 0xff) as u8,
+                ((v >> 8) & 0xff) as u8,
+                (v & 0xff) as u8,
+            ),
+            _ => Self::Default,
+        }
+    }
 }
 
 

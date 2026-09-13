@@ -1,1 +1,44 @@
-/target
+# [ rust ]
+# ..general
+debug
+target
+
+# ..rustfmt backup files
+**/*.rs.bk
+
+# rustc stack trace dumps (internal compiler error)
+rustc-ice-*.txt
+
+# [ macos ]
+# ..general
+.DS_Store
+.localized
+__MACOSX/
+.AppleDouble
+.LSOverride
+Icon[]
+
+# ..resource forks
+._*
+
+# [ vim ]
+# ..swaps
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# ..session
+Session.vim
+Sessionx.vim
+
+# ..temp
+.netrwhist
+*~
+
+# ..auto
+tags
+
+# ..persistent undo
+[._]*.un~

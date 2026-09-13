@@ -1,4 +1,4 @@
-// ╭───────────────────────────────────────────────────────────────io/style.rs─╮
+// ╭─────────────────────────────────────────────────────────────cell/style.rs─╮
 // │                                                                           │
 // │                                ┏━┓    ┏━━┓              ┏━┓               │
 // │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
@@ -21,8 +21,8 @@
 // │    ENVIRONMENT    │
 // ╰───────────────────╯
 
-use super::color::Color;
-use super::escape::{Escapable, StyleContext};
+use crate::Color;
+use crate::io::escape::{Escapable, StyleContext};
 
 
 // ╭───────────────╮
@@ -76,8 +76,8 @@ impl SGR {
     pub(crate) fn delta_from(&self, prev: &SGR) -> Option<Vec<u8>> {
         if self == prev { return None; }
 
-        let self_attrs = self._attrs_as_mask();
-        let prev_attrs = prev._attrs_as_mask();
+        let self_attrs = self.pack();
+        let prev_attrs = prev.pack();
 
         let on_attrs  = self_attrs & !prev_attrs;
         let off_attrs = prev_attrs & !self_attrs;
@@ -110,7 +110,24 @@ impl SGR {
     // ·    utility    ·
     // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
 
-    fn _attrs_as_mask(&self) -> u16 {
+    /// Packs the SGR attrs into a `u16` for storage in a `CellGrid` SoA lane.
+    ///
+    /// ```text
+    ///  16            9                0
+    /// ╭┴─────────────┼────────────────┴╮
+    /// │  <reserved>  │ ┊   (bitmask)   │
+    /// ╰──────────────┴┬─┬─┬─┬─┬─┬─┬─┬─┬╯
+    ///                 │ │ │ │ │ │ │ │ └─ bold
+    ///                 │ │ │ │ │ │ │ └─ dim
+    ///                 │ │ │ │ │ │ └─ italic
+    ///                 │ │ │ │ │ └─ underline
+    ///                 │ │ │ │ └─ blink
+    ///                 │ │ │ └─ fast_blink
+    ///                 │ │ └─ reverse
+    ///                 │ └─ concealed
+    ///                 └─ strikethrough
+    /// ```
+    pub fn pack(&self) -> u16 {
         (self.bold as u16)            << 0
         | (self.dim as u16)           << 1
         | (self.italic as u16)        << 2
@@ -120,6 +137,31 @@ impl SGR {
         | (self.reverse as u16)       << 6
         | (self.concealed as u16)     << 7
         | (self.strikethrough as u16) << 8
+    }
+
+    /// Unpacks a `CellGrid` SoA `u16` lane back into an SGR.
+    pub fn unpack(v: u16) -> Self {
+        SGR {
+            bold:          (v & (1 << 0)) != 0,
+            dim:           (v & (1 << 1)) != 0,
+            italic:        (v & (1 << 2)) != 0,
+            underline:     (v & (1 << 3)) != 0,
+            blink:         (v & (1 << 4)) != 0,
+            fast_blink:    (v & (1 << 5)) != 0,
+            reverse:       (v & (1 << 6)) != 0,
+            concealed:     (v & (1 << 7)) != 0,
+            strikethrough: (v & (1 << 8)) != 0,
+            fg: Color::default(),
+            bg: Color::default(),
+        }
+    }
+
+    /// Unpacks all style-related `CellGrid` SoA lanes back into an SGR.
+    pub fn unpack_all(attrs: u16, fg: u32, bg: u32) -> Self {
+        let mut sgr = Self::unpack(attrs);
+        sgr.fg = Color::unpack(fg);
+        sgr.bg = Color::unpack(bg);
+        sgr
     }
 }
 

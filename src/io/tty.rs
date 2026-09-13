@@ -24,7 +24,7 @@
 use std::io;
 use std::os::unix::io::RawFd;
 
-use super::error::TerminalError;
+use crate::TerminalError;
 
 
 // ╭───────────╮
