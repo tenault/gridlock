@@ -21,8 +21,9 @@
 // │    ENVIRONMENT    │
 // ╰───────────────────╯
 
-use super::style::attr;
-use super::color::Color;
+use crate::cell::style::attr;
+
+use crate::Color;
 
 
 // ╭───────────────╮

@@ -1,4 +1,4 @@
-// ╭────────────────────────────────────────────────────────────io/terminal.rs─╮
+// ╭──────────────────────────────────────────────────────────core/terminal.rs─╮
 // │                                                                           │
 // │                                ┏━┓    ┏━━┓              ┏━┓               │
 // │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
@@ -26,12 +26,13 @@ use std::marker::PhantomData;
 use std::os::unix::io::RawFd;
 use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 
-use super::escape;
-use super::signal;
-use super::cursor::VirtualCursor;
-use super::error::TerminalError;
-use super::style::SGR;
-use super::tty::TTY;
+use crate::io::escape;
+use crate::io::signal;
+
+use crate::TerminalError;
+use crate::cell::cursor::VirtualCursor;
+use crate::cell::style::SGR;
+use crate::io::tty::TTY;
 
 
 // ╭───────────────╮

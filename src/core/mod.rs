@@ -1,4 +1,4 @@
-// ╭─────────────────────────────────────────────────────────────────io/mod.rs─╮
+// ╭───────────────────────────────────────────────────────────────core/mod.rs─╮
 // │                                                                           │
 // │                                ┏━┓    ┏━━┓              ┏━┓               │
 // │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
@@ -21,6 +21,8 @@
 // │    ENVIRONMENT    │
 // ╰───────────────────╯
 
-pub(crate) mod escape;
-pub(crate) mod signal;
-pub(crate) mod tty;
+pub(crate) mod error;
+pub(crate) mod terminal;
+
+pub use error::TerminalError;
+pub use terminal::Terminal;
