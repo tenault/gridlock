@@ -81,11 +81,16 @@
 //! │   ├── mod.rs      // Module exports
 //! │   ├── error.rs    // Error types
 //! │   └── terminal.rs // Main terminal interface
-//! └── io/
+//! ├── io/
+//! │   ├── mod.rs      // Module exports
+//! │   ├── escape.rs   // ANSI escape generation
+//! │   ├── signal.rs   // Signal handlers
+//! │   └── tty.rs      // Low-level TTY operations
+//! └── unicode/
 //!     ├── mod.rs      // Module exports
-//!     ├── escape.rs   // ANSI escape generation
-//!     ├── signal.rs   // Signal handlers
-//!     └── tty.rs      // Low-level TTY operations
+//!     ├── grapheme.rs // Grapheme Cluster segmentation (UAX #29)
+//!     ├── sentence.rs // Word boundary detection       (UAX #29)
+//!     └── word.rs     // Sentence boundary detection   (UAX #29)
 //! ```
 //!
 //! ## Platforms
@@ -104,10 +109,10 @@
 // │    ENVIRONMENT    │
 // ╰───────────────────╯
 
-/// Core I/O module for terminal operation.
 pub mod cell;
 pub mod core;
 pub mod io;
+pub mod unicode;
 
 pub use cell::{Color, TerminalStyle};
 pub use core::{Terminal, TerminalError};
