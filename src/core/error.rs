@@ -1,33 +1,23 @@
-// ╭─────────────────────────────────────────────────────────────core/error.rs─╮
-// │                                                                           │
-// │                                ┏━┓    ┏━━┓              ┏━┓               │
-// │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
-// │           ┏━━━┓┏┓┏━━━━━┓┏━┓┏━━━┛ ┃     ┃ ┃┏━━━━━┓┏━━━━━┓┃ ┃┏━━┓           │
-// │           ┃ ┏━┓ ┃┃ ┏━━━┛┃ ┃┃ ┏━┓ ┃     ┃ ┃┃ ┏━┓ ┃┃ ┏━━━┛┃ ┗┛┏━┛           │
-// │           ┃ ┗━┛ ┃┃ ┃    ┃ ┃┃ ┗━┛ ┃ ┏━┓ ┃ ┃┃ ┗━┛ ┃┃ ┗━━━┓┃ ┏┓┗━┓           │
-// │           ┗━━━┓ ┃┗━┛    ┗━┛┗━━━┛┗┛ ┗━┛ ┗━━┛┗━━━━┛┗━━━━━┛┗━┛┗━━┛           │
-// │           ┏━━━┛ ┃ ////////////////////////////////////////////            │
-// │           ┗━━━━━┛                                                         │
-// │                                                                           │
-// │                copyright (c) 2026 Malakai Smith (@tenault)                │
-// │                                                                           │
-// │    This Source Code Form is subject to the terms of the Mozilla Public    │
-// │    License, v. 2.0. If a copy of the MPL was not distributed with this    │
-// │         file, You can obtain one at https://mozilla.org/MPL/2.0.          │
-// │                                                                           │
-// ╰───────────────────────────────────────────────────────────────────────────╯
+//
+// gridlock .................... core/error.rs
+// copyright (c) 2026 malakai smith (@tenault)
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0.
+//
 
-// ╭───────────────────╮
-// │    ENVIRONMENT    │
-// ╰───────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~
+// [[    ENVIRONMENT    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~
 
 use std::io;
 use std::os::unix::io::RawFd;
 
 
-// ╭──────────────────────╮
-// │    TERMINAL ERROR    │
-// ╰──────────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~
+// [[    TERMINAL ERROR    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// Errors that can arise during terminal state acquisition and management.
 #[derive(Debug)]
@@ -199,7 +189,7 @@ impl TerminalError {
         }
     }
 
-    // ╶╶╶╶╶ internal ╴╴╴╴╴
+    // ..... internal .....
 
     /// Returns the name of a given signal, or `unknown` if unmapped.
     fn get_signal_name(signal: i32) -> &'static str {
@@ -213,9 +203,9 @@ impl TerminalError {
 }
 
 
-// ╭──────────────────╮
-// │    EXTENSIONS    │
-// ╰──────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~
+// [[    EXTENSIONS    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~
 
 impl std::fmt::Display for TerminalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

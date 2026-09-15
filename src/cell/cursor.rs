@@ -1,32 +1,22 @@
-// ╭────────────────────────────────────────────────────────────cell/cursor.rs─╮
-// │                                                                           │
-// │                                ┏━┓    ┏━━┓              ┏━┓               │
-// │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
-// │           ┏━━━┓┏┓┏━━━━━┓┏━┓┏━━━┛ ┃     ┃ ┃┏━━━━━┓┏━━━━━┓┃ ┃┏━━┓           │
-// │           ┃ ┏━┓ ┃┃ ┏━━━┛┃ ┃┃ ┏━┓ ┃     ┃ ┃┃ ┏━┓ ┃┃ ┏━━━┛┃ ┗┛┏━┛           │
-// │           ┃ ┗━┛ ┃┃ ┃    ┃ ┃┃ ┗━┛ ┃ ┏━┓ ┃ ┃┃ ┗━┛ ┃┃ ┗━━━┓┃ ┏┓┗━┓           │
-// │           ┗━━━┓ ┃┗━┛    ┗━┛┗━━━┛┗┛ ┗━┛ ┗━━┛┗━━━━┛┗━━━━━┛┗━┛┗━━┛           │
-// │           ┏━━━┛ ┃ ////////////////////////////////////////////            │
-// │           ┗━━━━━┛                                                         │
-// │                                                                           │
-// │                copyright (c) 2026 Malakai Smith (@tenault)                │
-// │                                                                           │
-// │    This Source Code Form is subject to the terms of the Mozilla Public    │
-// │    License, v. 2.0. If a copy of the MPL was not distributed with this    │
-// │         file, You can obtain one at https://mozilla.org/MPL/2.0.          │
-// │                                                                           │
-// ╰───────────────────────────────────────────────────────────────────────────╯
+//
+// gridlock ................... cell/cursor.rs
+// copyright (c) 2026 malakai smith (@tenault)
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0.
+//
 
-// ╭───────────────────╮
-// │    ENVIRONMENT    │
-// ╰───────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~
+// [[    ENVIRONMENT    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~
 
 use crate::io::escape::{Escapable, CursorContext};
 
 
-// ╭──────────────────────╮
-// │    VIRTUAL CURSOR    │
-// ╰──────────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~
+// [[    VIRTUAL CURSOR    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 pub(crate) struct VirtualCursor {
     x: u16,
@@ -36,17 +26,17 @@ pub(crate) struct VirtualCursor {
 
 impl VirtualCursor {
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    constructor    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,,,,,
+    // [    constructor    ]
+    // '''''''''''''''''''''
 
     pub(crate) fn new() -> Self {
         Self { x: 0, y: 0, stack: Vec::new() }
     }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    movement    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,,
+    // [    movement    ]
+    // ''''''''''''''''''
 
     /// Move cursor via CUP
     pub(crate) fn move_to(&mut self, x: u16, y: u16, max_x: u16, max_y: u16) -> Option<Vec<u8>> {
@@ -92,9 +82,9 @@ impl VirtualCursor {
         ctx.get_escape()
     }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    memory    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,
+    // [    memory    ]
+    // ''''''''''''''''
 
     /// Adds current cursor position to internal stack.
     pub(crate) fn save(&mut self) { self.stack.push((self.x, self.y)); } // todo: save w/ coords
@@ -116,9 +106,9 @@ impl VirtualCursor {
         }
     }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    accessors    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,,,
+    // [    accessors    ]
+    // '''''''''''''''''''
 
     pub(crate) fn locate(&self) -> (u16, u16) { (self.x, self.y) }
 

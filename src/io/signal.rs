@@ -1,25 +1,15 @@
-// ╭──────────────────────────────────────────────────────────────io/signal.rs─╮
-// │                                                                           │
-// │                                ┏━┓    ┏━━┓              ┏━┓               │
-// │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
-// │           ┏━━━┓┏┓┏━━━━━┓┏━┓┏━━━┛ ┃     ┃ ┃┏━━━━━┓┏━━━━━┓┃ ┃┏━━┓           │
-// │           ┃ ┏━┓ ┃┃ ┏━━━┛┃ ┃┃ ┏━┓ ┃     ┃ ┃┃ ┏━┓ ┃┃ ┏━━━┛┃ ┗┛┏━┛           │
-// │           ┃ ┗━┛ ┃┃ ┃    ┃ ┃┃ ┗━┛ ┃ ┏━┓ ┃ ┃┃ ┗━┛ ┃┃ ┗━━━┓┃ ┏┓┗━┓           │
-// │           ┗━━━┓ ┃┗━┛    ┗━┛┗━━━┛┗┛ ┗━┛ ┗━━┛┗━━━━┛┗━━━━━┛┗━┛┗━━┛           │
-// │           ┏━━━┛ ┃ ////////////////////////////////////////////            │
-// │           ┗━━━━━┛                                                         │
-// │                                                                           │
-// │                copyright (c) 2026 Malakai Smith (@tenault)                │
-// │                                                                           │
-// │    This Source Code Form is subject to the terms of the Mozilla Public    │
-// │    License, v. 2.0. If a copy of the MPL was not distributed with this    │
-// │         file, You can obtain one at https://mozilla.org/MPL/2.0.          │
-// │                                                                           │
-// ╰───────────────────────────────────────────────────────────────────────────╯
+//
+// gridlock ..................... io/signal.rs
+// copyright (c) 2026 malakai smith (@tenault)
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0.
+//
 
-// ╭───────────────────╮
-// │    ENVIRONMENT    │
-// ╰───────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~
+// [[    ENVIRONMENT    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~
 
 use std::io;
 use std::ptr;
@@ -31,9 +21,9 @@ use crate::io::escape;
 use crate::TerminalError;
 
 
-// ╭───────────────╮
-// │    SYMBOLS    │
-// ╰───────────────╯
+// ~~~~~~~~~~~~~~~~~~~
+// [[    SYMBOLS    ]]
+// ~~~~~~~~~~~~~~~~~~~
 
 const HANDLED_SIGNALS: [libc::c_int; 3] = [
     libc::SIGABRT,
@@ -45,9 +35,9 @@ const HANDLED_SIGNALS: [libc::c_int; 3] = [
 static HANDLERS_INSTALLED: AtomicBool = AtomicBool::new(false);
 
 
-// ╭───────────────╮
-// │    HANDLER    │
-// ╰───────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~
+// [[    SIGNAL HANDLER    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// Interrupts normal signal flow to force-restore the terminal to a saved state.
 ///
@@ -86,9 +76,9 @@ extern "C" fn signal_handler(signal: libc::c_int) {
 }
 
 
-// ╭───────────────╮
-// │    UTILITY    │
-// ╰───────────────╯
+// ~~~~~~~~~~~~~~~~~~~
+// [[    UTILITY    ]]
+// ~~~~~~~~~~~~~~~~~~~
 
 /// Installs signal handler via `sigaction` to capture `SIGINT`, `SIGTERM`, etc.
 ///

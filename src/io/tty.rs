@@ -1,25 +1,15 @@
-// ╭─────────────────────────────────────────────────────────────────io/tty.rs─╮
-// │                                                                           │
-// │                                ┏━┓    ┏━━┓              ┏━┓               │
-// │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
-// │           ┏━━━┓┏┓┏━━━━━┓┏━┓┏━━━┛ ┃     ┃ ┃┏━━━━━┓┏━━━━━┓┃ ┃┏━━┓           │
-// │           ┃ ┏━┓ ┃┃ ┏━━━┛┃ ┃┃ ┏━┓ ┃     ┃ ┃┃ ┏━┓ ┃┃ ┏━━━┛┃ ┗┛┏━┛           │
-// │           ┃ ┗━┛ ┃┃ ┃    ┃ ┃┃ ┗━┛ ┃ ┏━┓ ┃ ┃┃ ┗━┛ ┃┃ ┗━━━┓┃ ┏┓┗━┓           │
-// │           ┗━━━┓ ┃┗━┛    ┗━┛┗━━━┛┗┛ ┗━┛ ┗━━┛┗━━━━┛┗━━━━━┛┗━┛┗━━┛           │
-// │           ┏━━━┛ ┃ ////////////////////////////////////////////            │
-// │           ┗━━━━━┛                                                         │
-// │                                                                           │
-// │                copyright (c) 2026 Malakai Smith (@tenault)                │
-// │                                                                           │
-// │    This Source Code Form is subject to the terms of the Mozilla Public    │
-// │    License, v. 2.0. If a copy of the MPL was not distributed with this    │
-// │         file, You can obtain one at https://mozilla.org/MPL/2.0.          │
-// │                                                                           │
-// ╰───────────────────────────────────────────────────────────────────────────╯
+//
+// gridlock ........................ io/tty.rs
+// copyright (c) 2026 malakai smith (@tenault)
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0.
+//
 
-// ╭───────────────────╮
-// │    ENVIRONMENT    │
-// ╰───────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~
+// [[    ENVIRONMENT    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~
 
 use std::io;
 use std::os::unix::io::RawFd;
@@ -27,18 +17,18 @@ use std::os::unix::io::RawFd;
 use crate::TerminalError;
 
 
-// ╭───────────╮
-// │    TTY    │
-// ╰───────────╯
+// ~~~~~~~~~~~~~~~
+// [[    TTY    ]]
+// ~~~~~~~~~~~~~~~
 
 /// Abstracted interface for the controlling tty.
 pub(crate) struct TTY { fd: Option<RawFd> }
 
 impl TTY {
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    constructor    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,,,,,
+    // [    constructor    ]
+    // '''''''''''''''''''''
 
     /// Resolves the controlling terminal file descriptor via `/dev/tty`.
     pub(crate) fn open() -> Result<Self, TerminalError> {
@@ -53,10 +43,9 @@ impl TTY {
         Ok(Self { fd: Some(fd) })
     }
 
-
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    terminal i/o    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,,,,,,
+    // [    terminal i/o    ]
+    // ''''''''''''''''''''''
 
     /// Reads available bytes from the tty fd, non-blocking.
     ///
@@ -118,9 +107,9 @@ impl TTY {
         Ok(index)
     }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    termios    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,
+    // [    termios    ]
+    // '''''''''''''''''
 
     /// Gets termios via `tcgetattr()`.
     pub(crate) fn get_termios(&self) -> Result<libc::termios, TerminalError> {
@@ -169,18 +158,18 @@ impl TTY {
         self.set_termios(&t)
     }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    accessors    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,,,
+    // [    accessors    ]
+    // '''''''''''''''''''
 
     /// Returns the controlling terminal file descriptor, or errors if closed.
     pub(crate) fn fd(&self) -> Result<RawFd, TerminalError> {
         self.fd.ok_or(TerminalError::InvalidFd)
     }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    utility    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,
+    // [    utility    ]
+    // '''''''''''''''''
 
     /// Returns `(ws_row, ws_col)` via `ioctl(TIOCGWINSZ)`.
     pub(crate) fn query_winsize(&self) -> Result<(u16, u16), TerminalError> {
@@ -197,9 +186,9 @@ impl TTY {
         Ok((ws.ws_row, ws.ws_col))
     }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    cleanup    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,
+    // [    cleanup    ]
+    // '''''''''''''''''
 
     /// Closes the controlling terminal file descriptor.
     pub(crate) fn close(&mut self) -> Result<(), TerminalError> {
@@ -219,9 +208,9 @@ impl TTY {
 }
 
 
-// ╭──────────────────╮
-// │    EXTENSIONS    │
-// ╰──────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~
+// [[    EXTENSIONS    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~
 
 impl Drop for TTY {
     fn drop(&mut self) { let _ = self.close(); } // swallow errors, we just wanna close

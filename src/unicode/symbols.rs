@@ -1,25 +1,15 @@
-// ╭────────────────────────────────────────────────────────unicode/symbols.rs─╮
-// │                                                                           │
-// │                                ┏━┓    ┏━━┓              ┏━┓               │
-// │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
-// │           ┏━━━┓┏┓┏━━━━━┓┏━┓┏━━━┛ ┃     ┃ ┃┏━━━━━┓┏━━━━━┓┃ ┃┏━━┓           │
-// │           ┃ ┏━┓ ┃┃ ┏━━━┛┃ ┃┃ ┏━┓ ┃     ┃ ┃┃ ┏━┓ ┃┃ ┏━━━┛┃ ┗┛┏━┛           │
-// │           ┃ ┗━┛ ┃┃ ┃    ┃ ┃┃ ┗━┛ ┃ ┏━┓ ┃ ┃┃ ┗━┛ ┃┃ ┗━━━┓┃ ┏┓┗━┓           │
-// │           ┗━━━┓ ┃┗━┛    ┗━┛┗━━━┛┗┛ ┗━┛ ┗━━┛┗━━━━┛┗━━━━━┛┗━┛┗━━┛           │
-// │           ┏━━━┛ ┃ ////////////////////////////////////////////            │
-// │           ┗━━━━━┛                                                         │
-// │                                                                           │
-// │                copyright (c) 2026 Malakai Smith (@tenault)                │
-// │                                                                           │
-// │    This Source Code Form is subject to the terms of the Mozilla Public    │
-// │    License, v. 2.0. If a copy of the MPL was not distributed with this    │
-// │         file, You can obtain one at https://mozilla.org/MPL/2.0.          │
-// │                                                                           │
-// ╰───────────────────────────────────────────────────────────────────────────╯
+//
+// gridlock ............... unicode/symbols.rs
+// copyright (c) 2026 malakai smith (@tenault)
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0.
+//
 
-// ╭───────────────╮
-// │    SYMBOLS    │
-// ╰───────────────╯
+// ~~~~~~~~~~~~~~~~~~~
+// [[    SYMBOLS    ]]
+// ~~~~~~~~~~~~~~~~~~~
 
 /// A list of UAX #29 grapheme break property ranges, sorted by start codepoint.
 ///
@@ -688,9 +678,9 @@ pub(crate) const GRAPHEME_BREAKS: &[(u32, u32, GraphType)] = &[
 ];
 
 
-// ╭─────────────────────╮
-// │    SUPPORT TYPES    │
-// ╰─────────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~~~
+// [[    SUPPORT TYPES    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// Grapheme cluster variants for quick identification.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

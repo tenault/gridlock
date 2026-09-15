@@ -1,33 +1,23 @@
-// ╭─────────────────────────────────────────────────────────────cell/style.rs─╮
-// │                                                                           │
-// │                                ┏━┓    ┏━━┓              ┏━┓               │
-// │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
-// │           ┏━━━┓┏┓┏━━━━━┓┏━┓┏━━━┛ ┃     ┃ ┃┏━━━━━┓┏━━━━━┓┃ ┃┏━━┓           │
-// │           ┃ ┏━┓ ┃┃ ┏━━━┛┃ ┃┃ ┏━┓ ┃     ┃ ┃┃ ┏━┓ ┃┃ ┏━━━┛┃ ┗┛┏━┛           │
-// │           ┃ ┗━┛ ┃┃ ┃    ┃ ┃┃ ┗━┛ ┃ ┏━┓ ┃ ┃┃ ┗━┛ ┃┃ ┗━━━┓┃ ┏┓┗━┓           │
-// │           ┗━━━┓ ┃┗━┛    ┗━┛┗━━━┛┗┛ ┗━┛ ┗━━┛┗━━━━┛┗━━━━━┛┗━┛┗━━┛           │
-// │           ┏━━━┛ ┃ ////////////////////////////////////////////            │
-// │           ┗━━━━━┛                                                         │
-// │                                                                           │
-// │                copyright (c) 2026 Malakai Smith (@tenault)                │
-// │                                                                           │
-// │    This Source Code Form is subject to the terms of the Mozilla Public    │
-// │    License, v. 2.0. If a copy of the MPL was not distributed with this    │
-// │         file, You can obtain one at https://mozilla.org/MPL/2.0.          │
-// │                                                                           │
-// ╰───────────────────────────────────────────────────────────────────────────╯
+//
+// gridlock .................... cell/style.rs
+// copyright (c) 2026 malakai smith (@tenault)
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0.
+//
 
-// ╭───────────────────╮
-// │    ENVIRONMENT    │
-// ╰───────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~
+// [[    ENVIRONMENT    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~
 
 use crate::Color;
 use crate::io::escape::{Escapable, StyleContext};
 
 
-// ╭───────────────╮
-// │    SYMBOLS    │
-// ╰───────────────╯
+// ~~~~~~~~~~~~~~~~~~~
+// [[    SYMBOLS    ]]
+// ~~~~~~~~~~~~~~~~~~~
 
 pub(crate) mod attr {
     pub(crate) const BOLD:          u16 = 1 << 0;
@@ -42,9 +32,9 @@ pub(crate) mod attr {
 }
 
 
-// ╭───────────╮
-// │    SGR    │
-// ╰───────────╯
+// ~~~~~~~~~~~~~~~
+// [[    SGR    ]]
+// ~~~~~~~~~~~~~~~
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SGR {
@@ -69,9 +59,9 @@ impl SGR {
 
     pub fn new() -> Self { Self::default() }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    delta    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,
+    // [    delta    ]
+    // '''''''''''''''
 
     pub(crate) fn delta_from(&self, prev: &SGR) -> Option<Vec<u8>> {
         if self == prev { return None; }
@@ -106,9 +96,9 @@ impl SGR {
         ctx.get_escape()
     }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    utility    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,
+    // [    utility    ]
+    // '''''''''''''''''
 
     /// Packs the SGR attrs into a `u16` for storage in a `CellGrid` SoA lane.
     ///
@@ -166,19 +156,19 @@ impl SGR {
 }
 
 
-// ╭─────────────────────╮
-// │    SUPPORT TYPES    │
-// ╰─────────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~~~
+// [[    SUPPORT TYPES    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 pub struct TerminalStyle { state: SGR }
 
 impl TerminalStyle {
 
-    // ╶╶╶╶╶ constructor ╴╴╴╴╴
+    // ..... constructor .....
 
     pub fn new() -> Self { Self::default() }
 
-    // ╶╶╶╶╶ styling ╴╴╴╴╴
+    // ..... styling .....
 
     pub fn bold(mut self)          -> Self {          self.state.bold = true; self }
     pub fn dim(mut self)           -> Self {           self.state.dim = true; self }
@@ -193,12 +183,12 @@ impl TerminalStyle {
     pub fn fg(mut self, c: Color) -> Self { self.state.fg = c; self }
     pub fn bg(mut self, c: Color) -> Self { self.state.bg = c; self }
 
-    // ╶╶╶╶╶ export ╴╴╴╴╴
+    // ..... export .....
 
     pub fn build(&self) -> SGR { self.state }
 }
 
-// ───── EXTENSIONS ─────
+// ~~~~~ EXTENSIONS ~~~~~
 
 impl Default for TerminalStyle {
     fn default() -> Self { Self { state: SGR::new() } }

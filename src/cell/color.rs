@@ -1,25 +1,15 @@
-// ╭─────────────────────────────────────────────────────────────cell/color.rs─╮
-// │                                                                           │
-// │                                ┏━┓    ┏━━┓              ┏━┓               │
-// │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
-// │           ┏━━━┓┏┓┏━━━━━┓┏━┓┏━━━┛ ┃     ┃ ┃┏━━━━━┓┏━━━━━┓┃ ┃┏━━┓           │
-// │           ┃ ┏━┓ ┃┃ ┏━━━┛┃ ┃┃ ┏━┓ ┃     ┃ ┃┃ ┏━┓ ┃┃ ┏━━━┛┃ ┗┛┏━┛           │
-// │           ┃ ┗━┛ ┃┃ ┃    ┃ ┃┃ ┗━┛ ┃ ┏━┓ ┃ ┃┃ ┗━┛ ┃┃ ┗━━━┓┃ ┏┓┗━┓           │
-// │           ┗━━━┓ ┃┗━┛    ┗━┛┗━━━┛┗┛ ┗━┛ ┗━━┛┗━━━━┛┗━━━━━┛┗━┛┗━━┛           │
-// │           ┏━━━┛ ┃ ////////////////////////////////////////////            │
-// │           ┗━━━━━┛                                                         │
-// │                                                                           │
-// │                copyright (c) 2026 Malakai Smith (@tenault)                │
-// │                                                                           │
-// │    This Source Code Form is subject to the terms of the Mozilla Public    │
-// │    License, v. 2.0. If a copy of the MPL was not distributed with this    │
-// │         file, You can obtain one at https://mozilla.org/MPL/2.0.          │
-// │                                                                           │
-// ╰───────────────────────────────────────────────────────────────────────────╯
+//
+// gridlock .................... cell/color.rs
+// copyright (c) 2026 malakai smith (@tenault)
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0.
+//
 
-// ╭─────────────╮
-// │    COLOR    │
-// ╰─────────────╯
+// ~~~~~~~~~~~~~~~~~
+// [[    COLOR    ]]
+// ~~~~~~~~~~~~~~~~~
 
 /// Represents all forms of a terminal color
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -40,17 +30,17 @@ pub enum Color {
 
 impl Color {
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    constructors    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,,,,,,
+    // [    constructors    ]
+    // ''''''''''''''''''''''
 
-    // ───── BASE ─────
+    // ~~~~~ BASE ~~~~~
 
     pub const fn default()                -> Self { Self::Default      }
     pub const fn indexed(n: u8)           -> Self { Self::Indexed(n)   }
     pub const fn rgb(r: u8, g: u8, b: u8) -> Self { Self::RGB(r, g, b) }
 
-    // ───── ANSI-16 ─────
+    // ~~~~~ ANSI-16 ~~~~~
 
     pub const fn black()   -> Self { Self::Indexed(0) }
     pub const fn red()     -> Self { Self::Indexed(1) }
@@ -70,19 +60,19 @@ impl Color {
     pub const fn bright_cyan()    -> Self { Self::Indexed(14) }
     pub const fn bright_white()   -> Self { Self::Indexed(15) }
 
-    // ───── GRAYSCALE ─────
+    // ~~~~~ GRAYSCALE ~~~~~
 
     pub fn gray(level: u8) -> Self { Self::Indexed(232 + level.min(23)) }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    conversions    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,,,,,
+    // [    conversions    ]
+    // '''''''''''''''''''''
 
     // HSL <-> RGB and much more coming in a future update...
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    utility    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,
+    // [    utility    ]
+    // '''''''''''''''''
 
     /// Packs the color into a `u32` for storage in a `CellGrid` SoA lane.
     ///
@@ -127,9 +117,9 @@ impl Color {
 }
 
 
-// ╭──────────────────╮
-// │    EXTENSIONS    │
-// ╰──────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~
+// [[    EXTENSIONS    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~
 
 impl Default for Color {
     fn default() -> Self { Self::Default }

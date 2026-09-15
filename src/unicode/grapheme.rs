@@ -1,25 +1,15 @@
-// ╭───────────────────────────────────────────────────────unicode/grapheme.rs─╮
-// │                                                                           │
-// │                                ┏━┓    ┏━━┓              ┏━┓               │
-// │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
-// │           ┏━━━┓┏┓┏━━━━━┓┏━┓┏━━━┛ ┃     ┃ ┃┏━━━━━┓┏━━━━━┓┃ ┃┏━━┓           │
-// │           ┃ ┏━┓ ┃┃ ┏━━━┛┃ ┃┃ ┏━┓ ┃     ┃ ┃┃ ┏━┓ ┃┃ ┏━━━┛┃ ┗┛┏━┛           │
-// │           ┃ ┗━┛ ┃┃ ┃    ┃ ┃┃ ┗━┛ ┃ ┏━┓ ┃ ┃┃ ┗━┛ ┃┃ ┗━━━┓┃ ┏┓┗━┓           │
-// │           ┗━━━┓ ┃┗━┛    ┗━┛┗━━━┛┗┛ ┗━┛ ┗━━┛┗━━━━┛┗━━━━━┛┗━┛┗━━┛           │
-// │           ┏━━━┛ ┃ ////////////////////////////////////////////            │
-// │           ┗━━━━━┛                                                         │
-// │                                                                           │
-// │                copyright (c) 2026 Malakai Smith (@tenault)                │
-// │                                                                           │
-// │    This Source Code Form is subject to the terms of the Mozilla Public    │
-// │    License, v. 2.0. If a copy of the MPL was not distributed with this    │
-// │         file, You can obtain one at https://mozilla.org/MPL/2.0.          │
-// │                                                                           │
-// ╰───────────────────────────────────────────────────────────────────────────╯
+//
+// gridlock .............. unicode/grapheme.rs
+// copyright (c) 2026 malakai smith (@tenault)
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0.
+//
 
-// ╭───────────────────╮
-// │    ENVIRONMENT    │
-// ╰───────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~
+// [[    ENVIRONMENT    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~
 
 use std::iter::Peekable;
 use std::str::CharIndices;
@@ -27,9 +17,9 @@ use std::str::CharIndices;
 use crate::unicode::{GRAPHEME_BREAKS, GraphType};
 
 
-// ╭────────────────────────╮
-// │    GRAPHEME CLUSTER    │
-// ╰────────────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// [[    GRAPHEME CLUSTER    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// A segmented grapheme cluster with metadata.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -43,9 +33,9 @@ pub struct GraphemeCluster {
 
 impl GraphemeCluster {
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    constructors    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,,,,,,
+    // [    constructors    ]
+    // ''''''''''''''''''''''
 
     /// Manually contructs a new cluster with a given set of bytes and optical width.
     pub fn new(bytes: Box<[u8]>, width: u8) -> Self {
@@ -57,9 +47,9 @@ impl GraphemeCluster {
         Self { bytes: Box::new([]), width: 0 }
     }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    utility    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,
+    // [    utility    ]
+    // '''''''''''''''''
 
     /// Get the byte-length of this cluster.
     #[inline]
@@ -79,11 +69,11 @@ impl GraphemeCluster {
 }
 
 
-// ╭─────────────────────╮
-// │    SUPPORT TYPES    │
-// ╰─────────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~~~
+// [[    SUPPORT TYPES    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-// ───── ITERATOR ─────
+// ~~~~~ ITERATOR ~~~~~
 
 /// Iterator over grapheme clusters in a string
 pub(crate) struct GraphemeSplitter<'a> {
@@ -123,70 +113,27 @@ impl<'a> GraphemeSplitter<'a> {
 
     /// Determine if a grapheme cluster should break according to UAX #29.
     fn _should_break(&self, prev: GraphType, next: GraphType) -> bool {
-        
-        // ╶╶╶╶╶ GB3: Don't break between CR + LF ╴╴╴╴╴
-        
-        if prev == GraphType::CR && next == GraphType::LF { return false; }
-
-        // ╶╶╶╶╶ GB4: Break after (Control | CR | LF) ╴╴╴╴╴
-
-        if prev == GraphType::Control || prev == GraphType::CR || prev == GraphType::LF {
-            return true;
+        return match (prev, next) {
+            (GraphType::CR, GraphType::LF) => false,
+            (GraphType::Control | GraphType::CR | GraphType::LF, _) => true,
+            (_, GraphType::Control | GraphType::CR | GraphType::LF) => true,
+            (GraphType::L, GraphType::L | GraphType::V | GraphType::LV | GraphType::LVT) => false,
+            (GraphType::V | GraphType::LV, GraphType::V | GraphType::T) => false,
+            (GraphType::T | GraphType::LVT, GraphType::T) => false,
+            (_, GraphType::Extend | GraphType::ZWJ) => false,
+            (_, GraphType::SpacingMark) => false,
+            (GraphType::Prepend, _) => false,
+            (_, _) => true,
         }
-
-        // ╶╶╶╶╶ GB5: Break before (Control | CR | LF) ╴╴╴╴╴
-
-        if next == GraphType::Control || next == GraphType::CR || next == GraphType::LF {
-            return true;
-        }
-
-        // ╶╶╶╶╶ GB6: Don't break Hangul, pt 1 ╴╴╴╴╴
-
-        if prev == GraphType::L && (
-            next == GraphType::L
-            || next == GraphType::V
-            || next == GraphType::LV
-            || next == GraphType::LVT) {
-            return false;
-        }
-
-        // ╶╶╶╶╶ GB7: Don't break Hangul, pt 2 ╴╴╴╴╴
-        
-        if (prev == GraphType::LV || prev == GraphType::V)
-            && (next == GraphType::V || next == GraphType::T) {
-            return false;
-        }
-
-        // ╶╶╶╶╶ GB8: Don't break Hangul, pt 3 ╴╴╴╴╴
-
-        if (prev == GraphType::LVT || prev == GraphType::T) && next == GraphType::T {
-            return false;
-        }
-
-        // ╶╶╶╶╶ GB9: Don't break before (Extend | ZWJ) ╴╴╴╴╴
-
-        if next == GraphType::Extend || next == GraphType::ZWJ { return false; }
-
-        // ╶╶╶╶╶ GB9a: Don't break before spacing marks ╴╴╴╴╴
-        
-        if next == GraphType::SpacingMark { return false; }
-        
-        // ╶╶╶╶╶ GB9b: Don't break after prepends ╴╴╴╴╴
-
-        if prev == GraphType::Prepend { return false; }
-        
-        // ╶╶╶╶╶ GB999: Break ╴╴╴╴╴
-
-        true
     }
 }
 
 
-// ╭───────────────╮
-// │    UTILITY    │
-// ╰───────────────╯
+// ~~~~~~~~~~~~~~~~~~~
+// [[    UTILITY    ]]
+// ~~~~~~~~~~~~~~~~~~~
 
-// ───── SEGMENTATION ─────
+// ~~~~~ SEGMENTATION ~~~~~
 
 pub fn segments(text: &str) -> Vec<GraphemeCluster> {
     if text.is_empty() { return Vec::new(); }
@@ -206,7 +153,7 @@ pub fn segments(text: &str) -> Vec<GraphemeCluster> {
     clusters
 }
 
-// ───── INTERNAL ─────
+// ~~~~~ INTERNAL ~~~~~
 
 /// Efficiently search a list of ranges to determine if they contain a char.
 #[inline(always)]
