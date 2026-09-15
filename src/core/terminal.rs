@@ -1,25 +1,15 @@
-// ╭──────────────────────────────────────────────────────────core/terminal.rs─╮
-// │                                                                           │
-// │                                ┏━┓    ┏━━┓              ┏━┓               │
-// │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
-// │           ┏━━━┓┏┓┏━━━━━┓┏━┓┏━━━┛ ┃     ┃ ┃┏━━━━━┓┏━━━━━┓┃ ┃┏━━┓           │
-// │           ┃ ┏━┓ ┃┃ ┏━━━┛┃ ┃┃ ┏━┓ ┃     ┃ ┃┃ ┏━┓ ┃┃ ┏━━━┛┃ ┗┛┏━┛           │
-// │           ┃ ┗━┛ ┃┃ ┃    ┃ ┃┃ ┗━┛ ┃ ┏━┓ ┃ ┃┃ ┗━┛ ┃┃ ┗━━━┓┃ ┏┓┗━┓           │
-// │           ┗━━━┓ ┃┗━┛    ┗━┛┗━━━┛┗┛ ┗━┛ ┗━━┛┗━━━━┛┗━━━━━┛┗━┛┗━━┛           │
-// │           ┏━━━┛ ┃ ////////////////////////////////////////////            │
-// │           ┗━━━━━┛                                                         │
-// │                                                                           │
-// │                copyright (c) 2026 Malakai Smith (@tenault)                │
-// │                                                                           │
-// │    This Source Code Form is subject to the terms of the Mozilla Public    │
-// │    License, v. 2.0. If a copy of the MPL was not distributed with this    │
-// │         file, You can obtain one at https://mozilla.org/MPL/2.0.          │
-// │                                                                           │
-// ╰───────────────────────────────────────────────────────────────────────────╯
+//
+// gridlock ................. core/terminal.rs
+// copyright (c) 2026 malakai smith (@tenault)
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0.
+//
 
-// ╭───────────────────╮
-// │    ENVIRONMENT    │
-// ╰───────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~
+// [[    ENVIRONMENT    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~
 
 use std::io;
 use std::marker::PhantomData;
@@ -35,9 +25,9 @@ use crate::cell::style::SGR;
 use crate::io::tty::TTY;
 
 
-// ╭───────────────╮
-// │    SYMBOLS    │
-// ╰───────────────╯
+// ~~~~~~~~~~~~~~~~~~~
+// [[    SYMBOLS    ]]
+// ~~~~~~~~~~~~~~~~~~~
 
 /// Idempotency flag, enforces instance singleton and ensures single restore across all exit paths.
 static TERMINAL_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -56,9 +46,9 @@ static SNAPSHOT_PTR: AtomicPtr<TerminalSnapshot> = AtomicPtr::new(std::ptr::null
 static WINSIZE_CACHE: AtomicU32 = AtomicU32::new(0);
 
 
-// ╭────────────────╮
-// │    TERMINAL    │
-// ╰────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~
+// [[    TERMINAL    ]]
+// ~~~~~~~~~~~~~~~~~~~~
 
 /// Owns the terminal snapshot and guarantees state restoration on drop.
 pub struct Terminal {
@@ -74,20 +64,20 @@ pub struct Terminal {
 
 impl Terminal {
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    constructor    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,,,,,,
+    // [    constructors    ]
+    // ''''''''''''''''''''''
 
-    // ───── EXTERNAL ─────
+    // ~~~~~ EXTERNAL ~~~~~
 
     /// Acquires the current terminal and initializes it for client control.
     pub fn acquire() -> Result<Self, TerminalError> {
 
-        // ╶╶╶╶╶ enforce instance singleton ╴╴╴╴╴
+        // ..... enforce instance singleton .....
 
         if TERMINAL_ACTIVE.swap(true, Ordering::AcqRel) { return Err(TerminalError::IllegalGuard); }
 
-        // ╶╶╶╶╶ construct or error ╴╴╴╴╴
+        // ..... construct or error .....
 
         match Self::_construct() {
             Ok(terminal) => Ok(terminal),
@@ -98,11 +88,11 @@ impl Terminal {
         }
     }
 
-    // ───── INTERNAL ─────
+    // ~~~~~ INTERNAL ~~~~~
 
     fn _construct() -> Result<Self, TerminalError> {
 
-        // ╶╶╶╶╶ acquire terminal state ╴╴╴╴╴
+        // ..... acquire terminal state .....
 
         let tty = TTY::open()?;
 
@@ -110,16 +100,16 @@ impl Terminal {
         let termios      = tty.get_termios()?;
         let (rows, cols) = tty.query_winsize()?;
 
-        // ╶╶╶╶╶ install signal handlers ╴╴╴╴╴
+        // ..... install signal handlers .....
 
         signal::install_handlers()?; // SIGINT, SIGTERM, etc
 
-        // ╶╶╶╶╶ configure terminal ╴╴╴╴╴
+        // ..... configure terminal .....
 
         tty.uncook()?;
         tty.write_raw(escape::ENTER_ALT_SCREEN)?;
 
-        // ╶╶╶╶╶ save snapshot (for restoration) ╴╴╴╴╴
+        // ..... save snapshot (for restoration) .....
 
         let snapshot = TerminalSnapshot { fd, termios };
 
@@ -129,7 +119,7 @@ impl Terminal {
         // dropped mid-panic before the signal fires
         SNAPSHOT_PTR.store(Box::into_raw(Box::new(snapshot.clone())), Ordering::Release);
 
-        // ╶╶╶╶╶ deliver instance ╴╴╴╴╴
+        // ..... deliver instance .....
 
         Ok(Self {
             tty,
@@ -143,9 +133,9 @@ impl Terminal {
         })
     }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    terminal i/o    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,,,,,,
+    // [    terminal i/o    ]
+    // ''''''''''''''''''''''
 
     pub fn read(&self, buf: &mut [u8]) -> Result<usize, TerminalError> {
         self.tty.read_raw(buf)
@@ -155,9 +145,9 @@ impl Terminal {
         self.tty.write_raw(s.as_bytes())
     }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    cursor    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,
+    // [    cursor    ]
+    // ''''''''''''''''
 
     pub fn move_cursor_to(&mut self, x: u16, y: u16) -> Result<(), TerminalError> {
         if let Some(esc) = self.cursor.move_to(
@@ -193,9 +183,9 @@ impl Terminal {
         Ok(())
     }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    style    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,
+    // [    style    ]
+    // '''''''''''''''
 
     /// Applies a given style, writing the smallest possible escape delta.
     pub fn apply_style(&mut self, target: &SGR) -> Result<(), TerminalError> {
@@ -207,9 +197,9 @@ impl Terminal {
         Ok(())
     }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    utility    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,
+    // [    utility    ]
+    // '''''''''''''''''
 
     /// Queries the terminal dimensions via `ioctl(TIOCGWINSZ)`.
     pub fn query_dimensions(&mut self) -> Result<(u16, u16), TerminalError> {
@@ -227,11 +217,11 @@ impl Terminal {
         _unpack_dimensions(WINSIZE_CACHE.load(Ordering::Acquire))
     }
 
-    // ╭╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╮
-    // ·    cleanup    ·
-    // ╰╶╶╶╶╶╶╶╶╶╶╶╶╶╶╶╯
+    // ,,,,,,,,,,,,,,,,,
+    // [    cleanup    ]
+    // '''''''''''''''''
 
-    // ───── EXTERNAL ─────
+    // ~~~~~ EXTERNAL ~~~~~
 
     /// Explicitly restores the terminal and releases the guard early.
     pub fn release(mut self) -> Result<(), TerminalError> {
@@ -240,17 +230,17 @@ impl Terminal {
         return err;
     }
 
-    // ───── INTERNAL ─────
+    // ~~~~~ INTERNAL ~~~~~
 
     fn _restore(&mut self) -> Result<(), TerminalError> {
 
-        // ╶╶╶╶╶ check if already restored ╴╴╴╴╴
+        // ..... check if already restored .....
 
         if !TERMINAL_ACTIVE.swap(false, Ordering::AcqRel) {
             return Err(TerminalError::AlreadyRestored);
         }
 
-        // ╶╶╶╶╶ cleanup snapshot leak ╴╴╴╴╴
+        // ..... cleanup snapshot leak .....
 
         // if signal handler claimed snapshot, this is a safe no-op...
         let ptr = clear_snapshot();
@@ -260,11 +250,11 @@ impl Terminal {
             unsafe { let _ = Box::from_raw(ptr); }
         }
 
-        // ╶╶╶╶╶ restore default signal dispositions ╴╴╴╴╴
+        // ..... restore default signal dispositions .....
 
         signal::uninstall_handlers()?;
 
-        // ╶╶╶╶╶ restore terminal ╴╴╴╴╴
+        // ..... restore terminal .....
 
         self.tty.write_raw(escape::EXIT_ALT_SCREEN)?; // todo, make cleaner and add SGR reset
         self.tty.set_termios(&self.snapshot.termios)?;
@@ -276,9 +266,9 @@ impl Terminal {
 }
 
 
-// ╭─────────────────────╮
-// │    SUPPORT TYPES    │
-// ╰─────────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~~~
+// [[    SUPPORT TYPES    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// An immutable snapshot of the terminal state at acquisition
 #[derive(Debug, Clone)]
@@ -312,26 +302,26 @@ impl TerminalSnapshot {
 }
 
 
-// ╭─────────────────╮
-// │    ACCESSORS    │
-// ╰─────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~
+// [[    ACCESSORS    ]]
+// ~~~~~~~~~~~~~~~~~~~~~
 
-// ───── ATOMIC: SNAPSHOT_PTR ─────
+// ~~~~~ ATOMIC: SNAPSHOT_PTR ~~~~~
 
 /// Clears the snapshot pointer (and returns it) (idempotent).
 pub(crate) fn clear_snapshot() -> *mut TerminalSnapshot {
     SNAPSHOT_PTR.swap(std::ptr::null_mut(), Ordering::AcqRel)
 }
 
-// ───── ATOMIC: WINSIZE_CACHE ─────
+// ~~~~~ ATOMIC: WINSIZE_CACHE ~~~~~
 
 /// Invalidates the winsize cache, forcing the next consumer to re-query.
 pub(crate) fn invalidate_winsize_cache() { WINSIZE_CACHE.store(0, Ordering::Release); }
 
 
-// ╭───────────────╮
-// │    UTILITY    │
-// ╰───────────────╯
+// ~~~~~~~~~~~~~~~~~~~
+// [[    UTILITY    ]]
+// ~~~~~~~~~~~~~~~~~~~
 
 /// Packs (rows, cols) into one `u16` for atomic storage.
 const fn _pack_dimensions(rows: u16, cols: u16) -> u32 { ((rows as u32) << 16) | (cols as u32) }
@@ -343,9 +333,9 @@ const fn _unpack_dimensions(pack: u32) -> Option<(u16, u16)> {
 }
 
 
-// ╭──────────────────╮
-// │    EXTENSIONS    │
-// ╰──────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~
+// [[    EXTENSIONS    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~
 
 impl Drop for Terminal {
     fn drop(&mut self) { let _ = self._restore(); } // swallow errors, we just wanna restore

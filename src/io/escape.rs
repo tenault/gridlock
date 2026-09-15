@@ -1,34 +1,24 @@
-// ╭──────────────────────────────────────────────────────────────io/escape.rs─╮
-// │                                                                           │
-// │                                ┏━┓    ┏━━┓              ┏━┓               │
-// │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
-// │           ┏━━━┓┏┓┏━━━━━┓┏━┓┏━━━┛ ┃     ┃ ┃┏━━━━━┓┏━━━━━┓┃ ┃┏━━┓           │
-// │           ┃ ┏━┓ ┃┃ ┏━━━┛┃ ┃┃ ┏━┓ ┃     ┃ ┃┃ ┏━┓ ┃┃ ┏━━━┛┃ ┗┛┏━┛           │
-// │           ┃ ┗━┛ ┃┃ ┃    ┃ ┃┃ ┗━┛ ┃ ┏━┓ ┃ ┃┃ ┗━┛ ┃┃ ┗━━━┓┃ ┏┓┗━┓           │
-// │           ┗━━━┓ ┃┗━┛    ┗━┛┗━━━┛┗┛ ┗━┛ ┗━━┛┗━━━━┛┗━━━━━┛┗━┛┗━━┛           │
-// │           ┏━━━┛ ┃ ////////////////////////////////////////////            │
-// │           ┗━━━━━┛                                                         │
-// │                                                                           │
-// │                copyright (c) 2026 Malakai Smith (@tenault)                │
-// │                                                                           │
-// │    This Source Code Form is subject to the terms of the Mozilla Public    │
-// │    License, v. 2.0. If a copy of the MPL was not distributed with this    │
-// │         file, You can obtain one at https://mozilla.org/MPL/2.0.          │
-// │                                                                           │
-// ╰───────────────────────────────────────────────────────────────────────────╯
+//
+// gridlock ..................... io/escape.rs
+// copyright (c) 2026 malakai smith (@tenault)
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0.
+//
 
-// ╭───────────────────╮
-// │    ENVIRONMENT    │
-// ╰───────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~
+// [[    ENVIRONMENT    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~
 
 use crate::cell::style::attr;
 
 use crate::Color;
 
 
-// ╭───────────────╮
-// │    SYMBOLS    │
-// ╰───────────────╯
+// ~~~~~~~~~~~~~~~~~~~
+// [[    SYMBOLS    ]]
+// ~~~~~~~~~~~~~~~~~~~
 
 pub(crate) const ENTER_ALT_SCREEN: &[u8] = b"\x1b[?1049h";
 pub(crate) const EXIT_ALT_SCREEN:  &[u8] = b"\x1b[?1049l";
@@ -42,9 +32,9 @@ const VPA: u8 = b'd';
 const SGR: u8 = b'm';
 
 
-// ╭─────────────────────────╮
-// │    ESCAPE GENERATORS    │
-// ╰─────────────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// [[    ESCAPE GENERATORS    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 fn _build_cursor_escape(ctx: CursorContext) -> Option<Vec<u8>> {
     match (ctx.x, ctx.y) {
@@ -74,9 +64,9 @@ fn _build_style_escape(ctx: StyleContext) -> Option<Vec<u8>> {
 }
 
 
-// ╭─────────────────────╮
-// │    SUPPORT TYPES    │
-// ╰─────────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~~~
+// [[    SUPPORT TYPES    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct CursorContext {
@@ -94,11 +84,11 @@ pub(crate) struct StyleContext {
 }
 
 
-// ╭───────────────╮
-// │    UTILITY    │
-// ╰───────────────╯
+// ~~~~~~~~~~~~~~~~~~~
+// [[    UTILITY    ]]
+// ~~~~~~~~~~~~~~~~~~~
 
-// ───── CSI ─────
+// ~~~~~ CSI ~~~~~
 
 fn _build_csi<C: CSI + Copy>(params: &[C], cmd: u8) -> Vec<u8> {
     let capacity = 3                      // ESC + `[` + cmd
@@ -143,7 +133,7 @@ fn _serialize_int(n: usize, out: &mut Vec<u8>) {
     out.extend_from_slice(&buf[i + 1..]);
 }
 
-// ───── STYLE ─────
+// ~~~~~ STYLE ~~~~~
 
 fn _extract_attr_params(mask: u16, enable: bool, out: &mut Vec<u8>) {
     const ATTR_CODES: &[(u16, u8, u8)] = &[
@@ -183,11 +173,11 @@ fn _extract_color_params(color: &Color, bg: bool, out: &mut Vec<u8>) {
 }
 
 
-// ╭──────────────────╮
-// │    EXTENSIONS    │
-// ╰──────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~
+// [[    EXTENSIONS    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~
 
-// ───── ESCAPABLE ─────
+// ~~~~~ ESCAPABLE ~~~~~
 
 pub(crate) trait Escapable { fn get_escape(&self) -> Option<Vec<u8>>; }
 
@@ -199,7 +189,7 @@ impl Escapable for StyleContext {
     fn get_escape(&self) -> Option<Vec<u8>> { _build_style_escape(*self) }
 }
 
-// ───── CSI ─────
+// ~~~~~ CSI ~~~~~
 
 trait CSI { const MAX_DECIMALS: usize; fn write_decimals(&self, out: &mut Vec<u8>); }
 
