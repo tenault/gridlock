@@ -310,7 +310,7 @@ pub(crate) const UAX29_GRAPHS: &[(u32, u32, GraphType)] = &[
 
 /// Grapheme cluster variants for quick identification.
 ///
-/// Each variant is codified with a max of 2-letters to assist spacing in lookup arrays.
+/// Each variant (minus LVT) is codified with a max of 2-letters to assist spacing in lookup arrays.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum GraphType {
     /// Prepend character
@@ -338,7 +338,7 @@ pub(crate) enum GraphType {
     /// LV syllable (Hangul)
     LV,
     /// LVT syllable (Hangul)
-    LT,
+    LVT,
     /// Zero-width joiner
     ZW,
     /// Indic conjunct break consonant

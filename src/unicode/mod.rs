@@ -23,4 +23,4 @@ pub(crate) mod word;
 
 pub use grapheme::GraphemeCluster;
 
-pub(crate) use symbols::{GRAPHEME_BREAKS, GraphType};
+pub(crate) use symbols::{ASCII_GRAPHS, INDIC_LINKERS, GRAPH_PEEKS, UAX29_GRAPHS, GraphType};
