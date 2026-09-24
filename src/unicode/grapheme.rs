@@ -65,11 +65,9 @@ impl<'a> GraphemeSplitter<'a> {
     /// Uses tiered-lookups for massive search cost-savings:
     /// - Extended ASCII (direct index)
     /// - Cached range/gap from the previous lookup (two comparisons)
-    /// - Hangul syllable arithmetic (permits LV/LVT omission in UAX29_GRAPHS)
+    /// - Hangul syllable arithmetic (permits LV/LVT omission in `UAX29_GRAPHS`)
     /// - Paged binary search (greatly reduces graph lookup space)
     fn identify(&mut self, code: u32) -> GraphType {
-        use Ordering::*;
-
         // ..... extended ASCII shortcut .....
 
         if code < 0x100 { return ASCII_GRAPHS[code as usize]; }
@@ -113,9 +111,9 @@ impl<'a> GraphemeSplitter<'a> {
         };
 
         match UAX29_GRAPHS[start..end].binary_search_by(|&(s, e, _)| {
-            if code < s { Greater }
-            else if code > e { Less }
-            else { Equal }
+            if code < s { Ordering::Greater }
+            else if code > e { Ordering::Less }
+            else { Ordering::Equal }
         }) {
             Ok(idx) => {
                 let (s, e, v) = UAX29_GRAPHS[start + idx];
@@ -144,7 +142,7 @@ impl<'a> GraphemeSplitter<'a> {
     /// Decision point occurs between `previous` (last consumed) and `current` (next candidate), and
     /// relies on a cluster-scoped `state` (e.g. number of Regional Indicator flags) for context.
     ///
-    /// Rules re-ordered by frequency for cost-savings, rule non-overlap preserves compliance.
+    /// Rules re-ordered by frequency for cost-savings, and rule non-overlap preserves compliance.
     fn is_boundary(
         &self,
         previous: &UnicodeScalar,
@@ -222,7 +220,7 @@ impl<'a> Iterator for GraphemeSplitter<'a> {
         };
 
         let mut state = ClusterState::new();
-        state.fold(&current);
+        state.ingest(&current);
 
         loop {
             self.pos += current.len;
@@ -235,7 +233,7 @@ impl<'a> Iterator for GraphemeSplitter<'a> {
                 break;
             }
 
-            state.fold(&next);
+            state.ingest(&next);
             current = next;
         }
 
@@ -303,9 +301,9 @@ struct ClusterState {
     extending: bool,
     /// Whether cluster suffix currently matches `ExtPict Extend* ZWJ`.
     joining: bool,
-    /// Whether an indic conjunct break consonant was consumed and no non-extender intervened.
+    /// Whether an indic consonant was consumed and no non-extender intervened.
     consonant: bool,
-    /// Whether at least one indic conjunct break linker was seen since the last consonant.
+    /// Whether at least one indic conjunct linker was seen since the last consonant.
     linking: bool,
 }
 
@@ -321,9 +319,20 @@ impl ClusterState {
         }
     }
 
-    /// Fold a unicode scalar into the current cluster state.
+    /// Ingest a unicode scalar and fold it into the current cluster state.
+    ///
+    /// For Indic scripts, the set `\p{InCB=Extend}` is defined as:
+    /// ```text
+    /// \p{gcb=Extend}
+    /// + \p{gcb=ZWJ}
+    /// - \p{InCB=Linker}
+    /// - \p{InCB=Consonant}
+    /// - 0x200c
+    /// ```
+    /// However, in practice, no indic consonant has an overlap with Extend or ZWJ, so we can safely
+    /// ignore that check entirely.
     #[inline]
-    fn fold(&mut self, next: &UnicodeScalar) {
+    fn ingest(&mut self, next: &UnicodeScalar) {
         use GraphType::*;
 
         // GB12/13
@@ -340,7 +349,7 @@ impl ClusterState {
         // GB9c
         match next.graph {
             IC => { self.consonant = true; },
-            E  => { /* indic consonant extenders ride-along in conjunct runs */ },
+            E | ZW if next.code != 0x200c && !is_indic_linker(next.code) => { /* protect state */ },
             _ if is_indic_linker(next.code) => {
                 if self.consonant { self.linking = true; }
             },
