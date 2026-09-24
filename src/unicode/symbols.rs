@@ -94,7 +94,7 @@ pub(crate) const GRAPH_PEEKS: &[u16] = &[
 
 /// A list of UAX #29 grapheme break property ranges, sorted by start codepoint.
 ///
-/// Ranges below `0xff` are ommited (as well as `LV` and `LVT`) due to their trivial computation.
+/// Ranges below `0x100` are ommited (as well as `LV` and `LVT`) due to their trivial computation.
 pub(crate) const UAX29_GRAPHS: &[(u32, u32, GraphType)] = &[
     (0x0300,  0x036f,  E),  (0x0483,  0x0489,  E),  (0x0591,  0x05bd,  E),  (0x05bf,  0x05bf,  E),
     (0x05c1,  0x05c2,  E),  (0x05c4,  0x05c5,  E),  (0x05c7,  0x05c9,  E),  (0x0600,  0x0605,  P),
@@ -310,7 +310,7 @@ pub(crate) const UAX29_GRAPHS: &[(u32, u32, GraphType)] = &[
 
 /// Grapheme cluster variants for quick identification.
 ///
-/// Each variant (minus LVT) is codified with a max of 2-letters to assist spacing in lookup arrays.
+/// Each variant (minus LVT) is encoded with a max of 2-letters to assist spacing in lookup arrays.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum GraphType {
     /// Prepend character
@@ -343,10 +343,6 @@ pub(crate) enum GraphType {
     ZW,
     /// Indic conjunct break consonant
     IC,
-    /// Indic conjunct break linker
-    IL,
-    /// Indic conjunct break extender
-    IE,
     /// Literally any other character
     O,
 }
