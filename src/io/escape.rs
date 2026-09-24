@@ -36,31 +36,31 @@ const SGR: u8 = b'm';
 // [[    ESCAPE GENERATORS    ]]
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-fn _build_cursor_escape(ctx: CursorContext) -> Option<Vec<u8>> {
+fn build_cursor_escape(ctx: CursorContext) -> Option<Vec<u8>> {
     match (ctx.x, ctx.y) {
         (None, None)    => None,
-        (Some(x), None) => Some(_build_csi(&[x + 1], CHA)),
-        (None, Some(y)) => Some(_build_csi(&[y + 1], VPA)),
+        (Some(x), None) => Some(build_csi(&[x + 1], CHA)),
+        (None, Some(y)) => Some(build_csi(&[y + 1], VPA)),
 
         (Some(x), Some(y)) => {
-            if x == 0 && y == 0 { Some(_build_short_csi(CUP)) }
-            else { Some(_build_csi(&[y + 1, x + 1], CUP)) }
+            if x == 0 && y == 0 { Some(build_short_csi(CUP)) }
+            else { Some(build_csi(&[y + 1, x + 1], CUP)) }
         },
     }
 }
 
-fn _build_style_escape(ctx: StyleContext) -> Option<Vec<u8>> {
+fn build_style_escape(ctx: StyleContext) -> Option<Vec<u8>> {
     let mut params: Vec<u8> = Vec::new();
 
     if ctx.reset { params.push(0); }
 
-    if let Some(mask) = ctx.off { _extract_attr_params(mask, false, &mut params); }
-    if let Some(mask) = ctx.on  { _extract_attr_params(mask, true,  &mut params); }
+    if let Some(mask) = ctx.off { extract_attr_params(mask, false, &mut params); }
+    if let Some(mask) = ctx.on  { extract_attr_params(mask, true,  &mut params); }
 
-    if let Some(ref color) = ctx.fg { _extract_color_params(color, false, &mut params); }
-    if let Some(ref color) = ctx.bg { _extract_color_params(color, true,  &mut params); }
+    if let Some(ref color) = ctx.fg { extract_color_params(color, false, &mut params); }
+    if let Some(ref color) = ctx.bg { extract_color_params(color, true,  &mut params); }
 
-    if params.is_empty() { None } else { Some(_build_csi(&params, SGR)) }
+    if params.is_empty() { None } else { Some(build_csi(&params, SGR)) }
 }
 
 
@@ -90,7 +90,7 @@ pub(crate) struct StyleContext {
 
 // ~~~~~ CSI ~~~~~
 
-fn _build_csi<C: CSI + Copy>(params: &[C], cmd: u8) -> Vec<u8> {
+fn build_csi<C: CSI + Copy>(params: &[C], cmd: u8) -> Vec<u8> {
     let capacity = 3                      // ESC + `[` + cmd
         + params.len() * C::MAX_DECIMALS  // Params as decimals
         + params.len().saturating_sub(1); // `;` separators
@@ -107,14 +107,14 @@ fn _build_csi<C: CSI + Copy>(params: &[C], cmd: u8) -> Vec<u8> {
     out
 }
 
-fn _build_short_csi(cmd: u8) -> Vec<u8> {
+fn build_short_csi(cmd: u8) -> Vec<u8> {
     let mut out = Vec::with_capacity(3);
     out.extend_from_slice(&CSI);
     out.push(cmd);
     out
 }
 
-fn _serialize_int(n: usize, out: &mut Vec<u8>) {
+fn serialize_int(n: usize, out: &mut Vec<u8>) {
     if n == 0 {
         out.push(b'0');
         return;
@@ -135,7 +135,7 @@ fn _serialize_int(n: usize, out: &mut Vec<u8>) {
 
 // ~~~~~ STYLE ~~~~~
 
-fn _extract_attr_params(mask: u16, enable: bool, out: &mut Vec<u8>) {
+fn extract_attr_params(mask: u16, enable: bool, out: &mut Vec<u8>) {
     const ATTR_CODES: &[(u16, u8, u8)] = &[
         (attr::BOLD,          1, 22), // shares disable with DIM
         (attr::DIM,           2, 22),
@@ -153,7 +153,7 @@ fn _extract_attr_params(mask: u16, enable: bool, out: &mut Vec<u8>) {
     }
 }
 
-fn _extract_color_params(color: &Color, bg: bool, out: &mut Vec<u8>) {
+fn extract_color_params(color: &Color, bg: bool, out: &mut Vec<u8>) {
     const BASE:   u8 = 30;
     const EXTEND: u8 = 38;
     const RESET:  u8 = 39;
@@ -182,11 +182,11 @@ fn _extract_color_params(color: &Color, bg: bool, out: &mut Vec<u8>) {
 pub(crate) trait Escapable { fn get_escape(&self) -> Option<Vec<u8>>; }
 
 impl Escapable for CursorContext {
-    fn get_escape(&self) -> Option<Vec<u8>> { _build_cursor_escape(*self) }
+    fn get_escape(&self) -> Option<Vec<u8>> { build_cursor_escape(*self) }
 }
 
 impl Escapable for StyleContext {
-    fn get_escape(&self) -> Option<Vec<u8>> { _build_style_escape(*self) }
+    fn get_escape(&self) -> Option<Vec<u8>> { build_style_escape(*self) }
 }
 
 // ~~~~~ CSI ~~~~~
@@ -195,22 +195,22 @@ trait CSI { const MAX_DECIMALS: usize; fn write_decimals(&self, out: &mut Vec<u8
 
 impl CSI for u8 {
     const MAX_DECIMALS: usize = 3; // u8::MAX = 255
-    fn write_decimals(&self, out: &mut Vec<u8>) { _serialize_int(*self as usize, out) }
+    fn write_decimals(&self, out: &mut Vec<u8>) { serialize_int(*self as usize, out) }
 }
 
 impl CSI for u16 {
     const MAX_DECIMALS: usize = 5; // u16::MAX = 65535
-    fn write_decimals(&self, out: &mut Vec<u8>) { _serialize_int(*self as usize, out) }
+    fn write_decimals(&self, out: &mut Vec<u8>) { serialize_int(*self as usize, out) }
 }
 
 impl CSI for u32 {
     const MAX_DECIMALS: usize = 10; // u32::MAX = 4294967295
-    fn write_decimals(&self, out: &mut Vec<u8>) { _serialize_int(*self as usize, out) }
+    fn write_decimals(&self, out: &mut Vec<u8>) { serialize_int(*self as usize, out) }
 }
 
 impl CSI for u64 {
     const MAX_DECIMALS: usize = 20; // u64::MAX = 18446744073709551615
-    fn write_decimals(&self, out: &mut Vec<u8>) { _serialize_int(*self as usize, out) }
+    fn write_decimals(&self, out: &mut Vec<u8>) { serialize_int(*self as usize, out) }
 }
 
 impl CSI for usize {
@@ -218,6 +218,6 @@ impl CSI for usize {
         if cfg!(target_pointer_width = "64") { 20 } else { 10 }
     };
 
-    fn write_decimals(&self, out: &mut Vec<u8>) { _serialize_int(*self as usize, out) }
+    fn write_decimals(&self, out: &mut Vec<u8>) { serialize_int(*self as usize, out) }
 }
 
