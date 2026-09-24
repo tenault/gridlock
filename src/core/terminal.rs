@@ -79,7 +79,7 @@ impl Terminal {
 
         // ..... construct or error .....
 
-        match Self::_construct() {
+        match Self::construct() {
             Ok(terminal) => Ok(terminal),
             Err(e) => {
                 TERMINAL_ACTIVE.store(false, Ordering::Release);
@@ -90,7 +90,7 @@ impl Terminal {
 
     // ~~~~~ INTERNAL ~~~~~
 
-    fn _construct() -> Result<Self, TerminalError> {
+    fn construct() -> Result<Self, TerminalError> {
 
         // ..... acquire terminal state .....
 
@@ -205,7 +205,7 @@ impl Terminal {
     pub fn query_dimensions(&mut self) -> Result<(u16, u16), TerminalError> {
         let (rows, cols) = self.tty.query_winsize()?;
 
-        WINSIZE_CACHE.store(_pack_dimensions(rows, cols), Ordering::Release);
+        WINSIZE_CACHE.store(pack_dimensions(rows, cols), Ordering::Release);
         self.rows = rows;
         self.cols = cols;
 
@@ -214,7 +214,7 @@ impl Terminal {
 
     /// Returns the cached terminal dimensions, avoiding a syscall.
     pub fn get_cached_dimensions() -> Option<(u16, u16)> {
-        _unpack_dimensions(WINSIZE_CACHE.load(Ordering::Acquire))
+        unpack_dimensions(WINSIZE_CACHE.load(Ordering::Acquire))
     }
 
     // ,,,,,,,,,,,,,,,,,
@@ -225,14 +225,14 @@ impl Terminal {
 
     /// Explicitly restores the terminal and releases the guard early.
     pub fn release(mut self) -> Result<(), TerminalError> {
-        let err = self._restore();
+        let err = self.restore();
         std::mem::forget(self); // prevents double-drop since we took ownership
         return err;
     }
 
     // ~~~~~ INTERNAL ~~~~~
 
-    fn _restore(&mut self) -> Result<(), TerminalError> {
+    fn restore(&mut self) -> Result<(), TerminalError> {
 
         // ..... check if already restored .....
 
@@ -324,10 +324,10 @@ pub(crate) fn invalidate_winsize_cache() { WINSIZE_CACHE.store(0, Ordering::Rele
 // ~~~~~~~~~~~~~~~~~~~
 
 /// Packs (rows, cols) into one `u16` for atomic storage.
-const fn _pack_dimensions(rows: u16, cols: u16) -> u32 { ((rows as u32) << 16) | (cols as u32) }
+const fn pack_dimensions(rows: u16, cols: u16) -> u32 { ((rows as u32) << 16) | (cols as u32) }
 
 /// Unpacks a `u32` into (rows, cols), or returns `None` if zeroed.
-const fn _unpack_dimensions(pack: u32) -> Option<(u16, u16)> {
+const fn unpack_dimensions(pack: u32) -> Option<(u16, u16)> {
     if pack == 0 { return None; }
     Some(((pack >> 16) as u16, pack as u16))
 }
@@ -338,5 +338,5 @@ const fn _unpack_dimensions(pack: u32) -> Option<(u16, u16)> {
 // ~~~~~~~~~~~~~~~~~~~~~~
 
 impl Drop for Terminal {
-    fn drop(&mut self) { let _ = self._restore(); } // swallow errors, we just wanna restore
+    fn drop(&mut self) { let _ = self.restore(); } // swallow errors, we just wanna restore
 }
