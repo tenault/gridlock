@@ -301,8 +301,6 @@ struct ClusterState {
     extending: bool,
     /// Whether cluster suffix currently matches `ExtPict Extend* ZWJ`.
     joining: bool,
-    /// Whether an indic consonant was consumed and no non-extender intervened.
-    consonant: bool,
     /// Whether at least one indic conjunct linker was seen since the last consonant.
     linking: bool,
 }
@@ -314,14 +312,13 @@ impl ClusterState {
             regionals: 0,
             extending: false,
             joining:   false,
-            consonant: false,
             linking:   false,
         }
     }
 
     /// Ingest a unicode scalar and fold it into the current cluster state.
     ///
-    /// For Indic scripts, the set `\p{InCB=Extend}` is defined as:
+    /// For indic scripts, Unicode defines the set `\p{InCB=Extend}` as:
     /// ```text
     /// \p{gcb=Extend}
     /// + \p{gcb=ZWJ}
@@ -330,7 +327,7 @@ impl ClusterState {
     /// - 0x200c
     /// ```
     /// However, in practice, no indic consonant has an overlap with Extend or ZWJ, so we can safely
-    /// ignore that check entirely.
+    /// ignore the consonant check entirely.
     #[inline]
     fn ingest(&mut self, next: &UnicodeScalar) {
         use GraphType::*;
@@ -348,12 +345,9 @@ impl ClusterState {
 
         // GB9c
         match next.graph {
-            IC => { self.consonant = true; },
             E | ZW if next.code != 0x200c && !is_indic_linker(next.code) => { /* protect state */ },
-            _ if is_indic_linker(next.code) => {
-                if self.consonant { self.linking = true; }
-            },
-            _  => { self.consonant = false; self.linking = false; },
+            _ if is_indic_linker(next.code) => { self.linking = true; },
+            _  => { self.linking = false; },
         }
     }
 }
@@ -419,6 +413,9 @@ impl<'a> GraphemeCluster<'a> {
 
 // ~~~~~ SEGMENTATION ~~~~~
 
+/// ```rust
+/// for g in graphemes("héllo") { /* ... */ }
+/// ```
 pub fn graphemes(text: &str) -> GraphemeSplitter<'_> {
     GraphemeSplitter::new(text)
 }
