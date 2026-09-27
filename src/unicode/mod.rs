@@ -21,6 +21,4 @@ pub(crate) mod sentence;
 pub(crate) mod symbols;
 pub(crate) mod word;
 
-pub use grapheme::GraphemeCluster;
-
-pub(crate) use symbols::{ASCII_GRAPHS, INDIC_LINKERS, GRAPH_PEEKS, UAX29_GRAPHS, GraphType};
+pub use grapheme::{graphemes, GraphemeCluster};

@@ -13,7 +13,7 @@
 
 use std::cmp::Ordering;
 
-use crate::unicode::{ASCII_GRAPHS, INDIC_LINKERS, GRAPH_PEEKS, UAX29_GRAPHS, GraphType};
+use crate::unicode::symbols::{ASCII_GRAPHS, INDIC_LINKERS, GRAPH_PEEKS, UAX29_GRAPHS, GraphType};
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -21,7 +21,7 @@ use crate::unicode::{ASCII_GRAPHS, INDIC_LINKERS, GRAPH_PEEKS, UAX29_GRAPHS, Gra
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// Iterator over grapheme clusters in a string.
-pub(crate) struct GraphemeSplitter<'a> {
+pub struct GraphemeSplitter<'a> {
     bytes: &'a [u8],
     pos:   usize,
     range: GraphRange,
@@ -35,7 +35,7 @@ impl<'a> GraphemeSplitter<'a> {
     // '''''''''''''''''''''
 
     #[inline]
-    pub(crate) fn new(text: &'a str) -> Self {
+    pub fn new(text: &'a str) -> Self {
         Self {
             bytes: text.as_bytes(),
             pos:   0,
@@ -297,11 +297,11 @@ struct GraphRange {
 struct ClusterState {
     /// A count of Regional Indicators consumed in this cluster.
     regionals: u32,
-    /// Whether cluster suffix currently matches `ExtPict Extend*`.
+    /// Whether the cluster suffix currently matches `ExtPict Extend*`.
     extending: bool,
-    /// Whether cluster suffix currently matches `ExtPict Extend* ZWJ`.
+    /// Whether the cluster suffix currently matches `ExtPict Extend* ZWJ`.
     joining: bool,
-    /// Whether at least one indic conjunct linker was seen since the last consonant.
+    /// Whether the cluster suffix currently matches `InCB=Linker InCB=Extend*`.
     linking: bool,
 }
 
@@ -359,10 +359,8 @@ impl ClusterState {
 pub struct GraphemeCluster<'a> {
     /// Raw utf-8 bytes of the cluster.
     pub bytes: &'a [u8],
-
     /// Byte offset of this cluster within the source text.
     pub offset: usize,
-
     /// Display width (1 or 2)
     pub width: u8,
 }
@@ -373,29 +371,21 @@ impl<'a> GraphemeCluster<'a> {
     // [    constructors    ]
     // ''''''''''''''''''''''
 
-    /// Manually contructs a new cluster with a given set of bytes and optical width.
+    /// Manually contructs a new cluster with a given set of bytes and display width.
     #[inline]
-    pub fn new(bytes: &'a [u8], offset: usize, width: u8) -> Self {
+    pub fn from(bytes: &'a [u8], offset: usize, width: u8) -> Self {
         Self { bytes, offset, width }
     }
 
     /// Creates an empty cluster.
     #[inline]
-    pub fn blank() -> Self {
+    pub fn new() -> Self {
         Self { bytes: &[], offset: 0, width: 0 }
     }
 
     // ,,,,,,,,,,,,,,,,,
     // [    utility    ]
     // '''''''''''''''''
-
-    /// Get the byte-length of this cluster.
-    #[inline]
-    pub fn len(&self) -> usize { self.bytes.len() }
-
-    /// Check if this cluster is empty.
-    #[inline]
-    pub fn is_empty(&self) -> bool { self.bytes.is_empty() }
 
     /// Borrow the raw bytes as a slice.
     #[inline]
@@ -404,8 +394,39 @@ impl<'a> GraphemeCluster<'a> {
     /// View the bytes as a string.
     #[inline]
     pub fn as_str(&self) -> Option<&str> { std::str::from_utf8(&self.bytes).ok() }
+
+    /// Check if this cluster is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool { self.bytes.is_empty() }
+
+    /// Get the length of this cluster in bytes.
+    #[inline]
+    pub fn len(&self) -> usize { self.bytes.len() }
+
+    /// Iterate over the unicode scalars in this cluster.
+    #[inline]
+    pub fn scalars(&self) -> ScalarIterator<'_> {
+        ScalarIterator { bytes: self.bytes, pos: 0 }
+    }
 }
 
+// ~~~~~ SCALAR ITERATOR ~~~~~
+
+pub struct ScalarIterator<'a> {
+    bytes: &'a [u8],
+    pos:   usize,
+}
+
+impl<'a> Iterator for ScalarIterator<'a> {
+    type Item = u32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos >= self.bytes.len() { return None; }
+        let (scalar, len) = extract_scalar(self.bytes, self.pos);
+        self.pos += len;
+        Some(scalar)
+    }
+}
 
 // ~~~~~~~~~~~~~~~~~~~
 // [[    UTILITY    ]]
@@ -413,12 +434,10 @@ impl<'a> GraphemeCluster<'a> {
 
 // ~~~~~ SEGMENTATION ~~~~~
 
-/// ```rust
+/// ```rust,no_run,compile_fail
 /// for g in graphemes("héllo") { /* ... */ }
 /// ```
-pub fn graphemes(text: &str) -> GraphemeSplitter<'_> {
-    GraphemeSplitter::new(text)
-}
+pub fn graphemes(text: &str) -> GraphemeSplitter<'_> { GraphemeSplitter::new(text) }
 
 // ~~~~~ UNICODE ~~~~~
 
