@@ -26,7 +26,7 @@ use self::GraphType::*;
 
 // ~~~~~ GRAPHEME BREAKS ~~~~~
 
-/// An O(1) lookup array for extended ASCII, which covers the vast majority of terminal text.
+/// An O(1) lookup table for extended ASCII, which covers the vast majority of terminal text.
 pub(crate) const ASCII_GRAPHS: &[GraphType] = &[
     C,  C,  C,  C,  C,  C,  C,  C,  C,  C,  LF, C,  C,  CR, C,  C,
     C,  C,  C,  C,  C,  C,  C,  C,  C,  C,  C,  C,  C,  C,  C,  C,
@@ -56,7 +56,7 @@ pub(crate) const INDIC_LINKERS: &[u32] = &[
     0x11a47, 0x11a99, 0x11f42,
 ];
 
-/// An O(1) lookup array for UAX29_GRAPHS to greatly reduce binary search space, paged by 0x100.
+/// An O(1) lookup table for UAX29_GRAPHS to greatly reduce binary search space, paged by 0x100.
 pub(crate) const GRAPH_PEEKS: &[u16] = &[
     0,   0,   0,   0,   1,   2,   7,   17,  23,  32,  66,  92,  119, 145, 168, 176,
     188, 212, 215, 215, 216, 216, 216, 216, 229, 234, 242, 257, 282, 294, 295, 295,
@@ -310,7 +310,7 @@ pub(crate) const UAX29_GRAPHS: &[(u32, u32, GraphType)] = &[
 
 /// Grapheme cluster variants for quick identification.
 ///
-/// Each variant (minus LVT) is encoded with a max of 2-letters to assist spacing in lookup arrays.
+/// Each variant (minus LVT) is encoded with a max of 2-letters to assist spacing in lookup tables.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum GraphType {
     /// Prepend character

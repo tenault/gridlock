@@ -11,7 +11,6 @@
 // [[    ENVIRONMENT    ]]
 // ~~~~~~~~~~~~~~~~~~~~~~~
 
-use std::env;
 use std::fs;
 
 
@@ -22,10 +21,10 @@ use std::fs;
 /// Converts unicode property range lists into a symbols file according to the template.
 pub fn generate() {
 
-    // ~~~~~ read data ~~~~~
+    // ..... read data .....
 
     let template = fs::read_to_string("templates/uax29g.rs")
-        .unwrap_or_else(|e| panic!("Failed to read template {}: {}", &args[0], e));
+        .unwrap_or_else(|e| panic!("Failed to read template: {}", e));
 
     let files = &[
         "data/unicode/DerivedCoreProperties.txt",
@@ -33,7 +32,7 @@ pub fn generate() {
         "data/unicode/GraphemeBreakProperty.txt",
     ];
 
-    // ~~~~~ ingest entries ~~~~~
+    // ..... ingest entries .....
 
     let mut graphs: Vec<(u32, u32, &str)> = Vec::new();
     let mut ascii:   [&str; 256] = ["O"; 256];
@@ -99,7 +98,7 @@ pub fn generate() {
         }
     }
 
-    // ~~~~~ sort and merge adjacent ranges ~~~~~
+    // ..... sort and merge adjacent ranges .....
 
     graphs.sort_by_key(|&(s, _, _)| s);
 
@@ -118,7 +117,7 @@ pub fn generate() {
     linkers.sort();
     linkers.dedup();
 
-    // ~~~~~ build lookup array ~~~~~
+    // ..... build lookup array .....
 
     let mut peeks: Vec<u16> = Vec::new();
 
@@ -132,7 +131,7 @@ pub fn generate() {
         peeks.push(i as u16);
     }
 
-    // ~~~~~ format output ~~~~~
+    // ..... format output .....
 
     let indent_ascii   = extract_indent(&template, "{{ASCII_GRAPHS}}");
     let indent_linkers = extract_indent(&template, "{{INDIC_LINKERS}}");
@@ -176,7 +175,7 @@ pub fn generate() {
         .replace("{{GRAPH_PEEKS}}",   &formatted_peeks)
         .replace("{{UAX29_GRAPHS}}",  &formatted_graphs);
 
-    // ~~~~~ export ~~~~~
+    // ..... export .....
 
     fs::write("src/unicode/symbols/uax29g.rs", out).expect("Failed to write uax29g.rs");
     println!(
