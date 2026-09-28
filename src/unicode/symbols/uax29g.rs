@@ -1,5 +1,5 @@
 //
-// gridlock ............... unicode/symbols.rs
+// gridlock ........ unicode/symbols/uax29g.rs
 // copyright (c) 2026 malakai smith (@tenault)
 //
 // This Source Code Form is subject to the terms of the Mozilla Public

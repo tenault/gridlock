@@ -73,24 +73,27 @@
 //! ```text
 //! lib.rs
 //! ├── cell/
-//! │   ├── mod.rs      // Module exports
-//! │   ├── color.rs    // Color jazz (ANSI, 256, RGB)
-//! │   ├── cursor.rs   // Virtual cursor tracking
-//! │   └── style.rs    // Text styling (SGR)
+//! │   ├── mod.rs          // Module exports
+//! │   ├── color.rs        // Color jazz (ANSI, 256, RGB)
+//! │   ├── cursor.rs       // Virtual cursor tracking
+//! │   └── style.rs        // Text styling (SGR)
 //! ├── core/
-//! │   ├── mod.rs      // Module exports
-//! │   ├── error.rs    // Error types
-//! │   └── terminal.rs // Main terminal interface
+//! │   ├── mod.rs          // Module exports
+//! │   ├── error.rs        // Error types
+//! │   └── terminal.rs     // Main terminal interface
 //! ├── io/
-//! │   ├── mod.rs      // Module exports
-//! │   ├── escape.rs   // ANSI escape generation
-//! │   ├── signal.rs   // Signal handlers
-//! │   └── tty.rs      // Low-level TTY operations
+//! │   ├── mod.rs          // Module exports
+//! │   ├── escape.rs       // ANSI escape generation
+//! │   ├── signal.rs       // Signal handlers
+//! │   └── tty.rs          // Low-level TTY operations
 //! └── unicode/
-//!     ├── mod.rs      // Module exports
-//!     ├── grapheme.rs // Grapheme Cluster segmentation (UAX #29)
-//!     ├── sentence.rs // Word boundary detection       (UAX #29)
-//!     └── word.rs     // Sentence boundary detection   (UAX #29)
+//!     ├── symbols/
+//!     │   ├── mod.rs      // Module exports
+//!     │   └── uax29.rs    // Support tables for UAX#29 conformance.
+//!     ├── mod.rs          // Module exports
+//!     ├── grapheme.rs     // Grapheme cluster segmentation (UAX #29)
+//!     ├── sentence.rs     // Word boundary detection       (UAX #29)
+//!     └── word.rs         // Sentence boundary detection   (UAX #29)
 //! ```
 //!
 //! ## Platforms

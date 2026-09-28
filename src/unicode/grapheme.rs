@@ -13,7 +13,7 @@
 
 use std::cmp::Ordering;
 
-use crate::unicode::symbols::{ASCII_GRAPHS, INDIC_LINKERS, GRAPH_PEEKS, UAX29_GRAPHS, GraphType};
+use crate::unicode::symbols::uax29g::*;
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -220,7 +220,7 @@ impl<'a> Iterator for GraphemeSplitter<'a> {
         };
 
         let mut state = ClusterState::new();
-        state.ingest(&current);
+        state.fold(&current);
 
         loop {
             self.pos += current.len;
@@ -233,7 +233,7 @@ impl<'a> Iterator for GraphemeSplitter<'a> {
                 break;
             }
 
-            state.ingest(&next);
+            state.fold(&next);
             current = next;
         }
 
@@ -329,7 +329,7 @@ impl ClusterState {
     /// However, in practice, no indic consonant has an overlap with Extend or ZWJ, so we can safely
     /// ignore the consonant check entirely.
     #[inline]
-    fn ingest(&mut self, next: &UnicodeScalar) {
+    fn fold(&mut self, next: &UnicodeScalar) {
         use GraphType::*;
 
         // GB12/13
@@ -434,8 +434,10 @@ impl<'a> Iterator for ScalarIterator<'a> {
 
 // ~~~~~ SEGMENTATION ~~~~~
 
-/// ```rust,no_run,compile_fail
-/// for g in graphemes("héllo") { /* ... */ }
+/// ```rust,no_run
+/// use gridlock::unicode::graphemes;
+///
+/// for cluster in graphemes("héllo") { /* ... */ }
 /// ```
 pub fn graphemes(text: &str) -> GraphemeSplitter<'_> { GraphemeSplitter::new(text) }
 
@@ -455,9 +457,9 @@ fn extract_scalar(bytes: &[u8], pos: usize) -> (u32, usize) {
             first as u32,
             1,
         )
-    } else if first < 0xE0 {
+    } else if first < 0xe0 {
         (
-            ((first & 0x1F) as u32) << 6
+            ((first & 0x1f) as u32) << 6
                 | (bytes[pos + 1] & 0x3f) as u32,
             2,
         )
@@ -481,5 +483,363 @@ fn extract_scalar(bytes: &[u8], pos: usize) -> (u32, usize) {
 
 // ~~~~~ MEMBERSHIP ~~~~~
 
+/// Returns whether a given code is part of the set `\p{InCB=Linker}`.
 #[inline]
 fn is_indic_linker(code: u32) -> bool { INDIC_LINKERS.binary_search(&code).is_ok() }
+
+
+// ~~~~~~~~~~~~~~~~~
+// [[    TESTS    ]]
+// ~~~~~~~~~~~~~~~~~
+
+#[cfg(test)]
+mod extract_scalar_tests {
+    use super::*;
+
+    #[test]
+    fn single_byte() {
+        let bytes = b"h"; // 0x68
+        let (code, len) = extract_scalar(bytes, 0);
+        assert_eq!(code, 0x68);
+        assert_eq!(len, 1);
+    }
+
+    #[test]
+    fn double_byte() {
+        let bytes = "é".as_bytes(); // 0xc3 0xa9
+        let (code, len) = extract_scalar(bytes, 0);
+        assert_eq!(code, 0xe9);
+        assert_eq!(len, 2);
+    }
+
+    #[test]
+    fn triple_byte() {
+        let bytes = "€".as_bytes(); // 0xe2 0x82 0xac
+        let (code, len) = extract_scalar(bytes, 0);
+        assert_eq!(code, 0x20ac);
+        assert_eq!(len, 3);
+    }
+
+    #[test]
+    fn quadruple_byte() {
+        let bytes = "𐍈".as_bytes(); // 0xf0 0x90 0x8d 0x88
+        let (code, len) = extract_scalar(bytes, 0);
+        assert_eq!(code, 0x10348);
+        assert_eq!(len, 4);
+    }
+
+    #[test]
+    fn sequential_extraction() {
+        let bytes = "aβ🀄".as_bytes(); // 0x61 0xce 0xb2 0xf0 0x9f 0x80 0x84
+
+        let (c1, l1) = extract_scalar(bytes, 0);       // 0x61
+        let (c2, l2) = extract_scalar(bytes, l1);      // 0xce 0xb2
+        let (c3, _)  = extract_scalar(bytes, l1 + l2); // 0xf0 0x9f 0x80 0x84
+        assert_eq!(c1, 0x61);
+        assert_eq!(c2, 0x03b2);
+        assert_eq!(c3, 0x1f004);
+    }
+}
+
+#[cfg(test)]
+mod boundary_tests {
+    use super::*;
+
+    #[test]
+    fn gb3() {
+        let prev  = UnicodeScalar { code: 0x0d, len: 1, graph: GraphType::CR };
+        let next  = UnicodeScalar { code: 0x0a, len: 1, graph: GraphType::LF };
+        let state = ClusterState::new();
+
+        let splitter = GraphemeSplitter::new("");
+        assert!(!splitter.is_boundary(&prev, &next, &state));
+    }
+
+    #[test]
+    fn gb4() {
+        let prev  = UnicodeScalar { code: 0x00, len: 1, graph: GraphType::C };
+        let next  = UnicodeScalar { code: 0x65, len: 1, graph: GraphType::O };
+        let state = ClusterState::new();
+
+        let splitter = GraphemeSplitter::new("");
+        assert!(splitter.is_boundary(&prev, &next, &state));
+    }
+
+    #[test]
+    fn gb6() {
+        let prev  = UnicodeScalar { code: 0x1100, len: 3, graph: GraphType::L };
+        let next  = UnicodeScalar { code: 0x1161, len: 3, graph: GraphType::V };
+        let state = ClusterState::new();
+
+        let splitter = GraphemeSplitter::new("");
+        assert!(!splitter.is_boundary(&prev, &next, &state));
+    }
+
+    #[test]
+    fn gb8() {
+        let prev  = UnicodeScalar { code: 0xac01, len: 3, graph: GraphType::LVT };
+        let next  = UnicodeScalar { code: 0x11a7, len: 3, graph: GraphType::T };
+        let state = ClusterState::new();
+
+        let splitter = GraphemeSplitter::new("");
+        assert!(!splitter.is_boundary(&prev, &next, &state));
+    }
+
+    #[test]
+    fn gb9() {
+        let prev  = UnicodeScalar { code: 0x0069, len: 1, graph: GraphType::O };
+        let next  = UnicodeScalar { code: 0x0301, len: 2, graph: GraphType::E };
+        let state = ClusterState::new();
+
+        let splitter = GraphemeSplitter::new("");
+        assert!(!splitter.is_boundary(&prev, &next, &state));
+    }
+
+    #[test]
+    fn gb11() {
+        let base = UnicodeScalar { code: 0x1f469, len: 4, graph: GraphType::EP };
+        let prev = UnicodeScalar { code: 0x200d,  len: 3, graph: GraphType::ZW };
+        let next = UnicodeScalar { code: 0x1f469, len: 4, graph: GraphType::EP };
+        let mut state = ClusterState::new();
+        state.fold(&base);
+        state.fold(&prev);
+
+        let splitter = GraphemeSplitter::new("");
+        assert!(!splitter.is_boundary(&prev, &next, &state));
+    }
+
+    #[test]
+    fn gb12_odd() {
+        let prev = UnicodeScalar { code: 0x1f1fa, len: 4, graph: GraphType::RI };
+        let next = UnicodeScalar { code: 0x1f1f8, len: 4, graph: GraphType::RI };
+        let mut state = ClusterState::new();
+        state.fold(&prev);
+
+        let splitter = GraphemeSplitter::new("");
+        assert!(!splitter.is_boundary(&prev, &next, &state));
+    }
+
+
+    #[test]
+    fn gb12_even() {
+        let prev = UnicodeScalar { code: 0x1f1fa, len: 4, graph: GraphType::RI };
+        let next = UnicodeScalar { code: 0x1f1f8, len: 4, graph: GraphType::RI };
+        let mut state = ClusterState::new();
+        state.fold(&prev);
+        state.fold(&next);
+
+        let splitter = GraphemeSplitter::new("");
+        assert!(splitter.is_boundary(&prev, &next, &state));
+    }
+}
+
+#[cfg(test)]
+mod identify_tests {
+    use super::*;
+
+    #[test]
+    fn ascii() {
+        let mut splitter = GraphemeSplitter::new("ABC");
+        let scalar = splitter.extract(0);
+        assert_eq!(scalar.graph, GraphType::O);
+    }
+
+    #[test]
+    fn hangul_lv() {
+        let mut splitter = GraphemeSplitter::new("가");
+        let scalar = splitter.extract(0);
+        assert_eq!(scalar.graph, GraphType::LV);
+    }
+
+    #[test]
+    fn hangul_lvt() {
+        let mut splitter = GraphemeSplitter::new("갑");
+        let scalar = splitter.extract(0);
+        assert_eq!(scalar.graph, GraphType::LVT);
+    }
+
+    #[test]
+    fn regional_indicator() {
+        let mut splitter = GraphemeSplitter::new("🇺🇸");
+        let s1 = splitter.extract(0);
+        let s2 = splitter.extract(4);
+        assert_eq!(s1.graph, GraphType::RI);
+        assert_eq!(s2.graph, GraphType::RI);
+    }
+
+    #[test]
+    fn extend_and_zwj() {
+        let mut splitter = GraphemeSplitter::new("e\u{0301}\u{200D}");
+        let s = splitter.extract(0);
+        let e = splitter.extract(1);
+        let z = splitter.extract(3);
+        assert_eq!(s.graph, GraphType::O);
+        assert_eq!(e.graph, GraphType::E);
+        assert_eq!(z.graph, GraphType::ZW);
+    }
+
+    #[test]
+    fn extended_pictographic() {
+        let mut splitter = GraphemeSplitter::new("👨‍👩‍👧");
+        let scalar = splitter.extract(0);
+        assert_eq!(scalar.graph, GraphType::EP);
+    }
+}
+
+#[cfg(test)]
+mod cluster_state_tests {
+    use super::*;
+
+    #[test]
+    fn initial_is_empty() {
+        let state = ClusterState::new();
+        assert_eq!(state.regionals, 0);
+        assert!(!state.extending);
+        assert!(!state.joining);
+        assert!(!state.linking);
+    }
+
+    #[test]
+    fn regionals_resets_on_non_ri() {
+        let r1 = UnicodeScalar { code: 0x1f1fa, len: 4, graph: GraphType::RI };
+        let r2 = UnicodeScalar { code: 0x1f1f8, len: 4, graph: GraphType::RI };
+        let a  = UnicodeScalar { code: 0x0065,  len: 1, graph: GraphType::O  };
+        let mut state = ClusterState::new();
+
+        state.fold(&r1);
+        assert_eq!(state.regionals, 1);
+
+        state.fold(&r2);
+        assert_eq!(state.regionals, 2);
+
+        state.fold(&a);
+        assert_eq!(state.regionals, 0);
+    }
+
+    #[test]
+    fn joining_requires_extend_before_zwj() {
+        let ep = UnicodeScalar { code: 0x1f468, len: 4, graph: GraphType::EP };
+        let zw = UnicodeScalar { code: 0x200d,  len: 3, graph: GraphType::ZW };
+        let mut state = ClusterState::new();
+
+        state.fold(&ep);
+        assert!(state.extending);
+        assert!(!state.joining);
+
+        state.fold(&zw);
+        assert!(!state.extending);
+        assert!(state.joining);
+    }
+
+    #[test]
+    fn joining_resets_on_non_zwj() {
+        let ep = UnicodeScalar { code: 0x1f468, len: 4, graph: GraphType::EP };
+        let zw = UnicodeScalar { code: 0x200d,  len: 3, graph: GraphType::ZW };
+        let e  = UnicodeScalar { code: 0x0301,  len: 2, graph: GraphType::E  };
+        let mut state = ClusterState::new();
+
+        state.fold(&ep);
+        state.fold(&zw);
+        assert!(state.joining);
+
+        state.fold(&e);
+        assert!(!state.joining);
+        assert!(!state.extending);
+    }
+}
+
+#[cfg(test)]
+mod grapheme_cluster_tests {
+    use super::*;
+
+    #[test]
+    fn from_builds_correctly() {
+        let bytes   = "ñ".as_bytes();
+        let cluster = GraphemeCluster::from(bytes, 5, 1);
+        assert_eq!(cluster.offset, 5);
+        assert_eq!(cluster.width,  1);
+        assert_eq!(cluster.len(),  2);
+        assert_eq!(cluster.as_str(), Some("ñ"));
+    }
+
+    #[test]
+    fn scalar_iterator_works() {
+        let bytes   = "ñ".as_bytes();
+        let cluster = GraphemeCluster::from(bytes, 5, 1);
+        let scalars: Vec<u32> = cluster.scalars().collect();
+        assert_eq!(scalars, vec![0x00f1]);
+    }
+
+    #[test]
+    fn empty_cluster_is_empty() {
+        let cluster = GraphemeCluster::new();
+        assert!(cluster.is_empty());
+        assert_eq!(cluster.len(), 0);
+        assert_eq!(cluster.offset, 0);
+        assert_eq!(cluster.as_str(), Some(""));
+    }
+}
+
+#[cfg(test)]
+mod grapheme_splitter_tests {
+    use super::*;
+
+    #[test]
+    fn empty_string_makes_no_clusters() {
+        let clusters: Vec<GraphemeCluster> = graphemes("").collect();
+        assert_eq!(clusters.len(), 0);
+    }
+
+    #[test]
+    fn ascii_splits_correctly() {
+        let text = "hello";
+        let clusters: Vec<GraphemeCluster> = graphemes(text).collect();
+        assert_eq!(clusters.len(), 5);
+        assert_eq!(clusters[0].as_str(), Some("h"));
+        assert_eq!(clusters[4].as_str(), Some("o"));
+    }
+
+    #[test]
+    fn combining_accent_stays_with_base() {
+        let text = "e\u{0301}";
+        let clusters: Vec<GraphemeCluster> = graphemes(text).collect();
+        assert_eq!(clusters.len(), 1);
+        assert_eq!(clusters[0].as_str(), Some("é"));
+    }
+
+    #[test]
+    fn flag_pair_stays_paired() {
+        let text = "🇺🇸";
+        let clusters: Vec<GraphemeCluster> = graphemes(text).collect();
+        assert_eq!(clusters.len(), 1);
+    }
+
+    #[test]
+    fn emoji_family_stays_together() {
+        let text = "👨‍👩‍👧‍👦";
+        let clusters: Vec<GraphemeCluster> = graphemes(text).collect();
+        assert_eq!(clusters.len(), 1);
+    }
+
+    #[test]
+    fn hangul_syllable_stays_clustered() {
+        let text = "가";
+        let clusters: Vec<GraphemeCluster> = graphemes(text).collect();
+        assert_eq!(clusters.len(), 1);
+    }
+
+    #[test]
+    fn crlf_stays_clustered() {
+        let text = "\r\n";
+        let clusters: Vec<GraphemeCluster> = graphemes(text).collect();
+        assert_eq!(clusters.len(), 1);
+    }
+
+    #[test]
+    fn size_hint_is_mostly_accurate() {
+        let text = "hello";
+        let (lo, hi) = graphemes(text).size_hint();
+        assert!(lo > 0);
+        assert!(hi.unwrap() <= 5);
+    }
+}
