@@ -24,12 +24,17 @@ use gridlock::unicode::graphemes;
 
 #[test]
 fn graphemes_cluster_correctly() {
+
+    // ..... read test data .....
+
     let root = env!("CARGO_MANIFEST_DIR");
     let path = Path::new(root).join("tests/data/GraphemeBreakTest.txt");
     let cases = fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("Failed to read test suite: {}", e));
 
     let count = extract_case_count(&cases).unwrap_or_else(|| panic!("Failed to set expectations."));
+
+    // ..... run tests .....
 
     let mut passed = 0;
     let mut failed = 0;
@@ -43,6 +48,8 @@ fn graphemes_cluster_correctly() {
             }
         }
     }
+
+    // ..... grade results .....
 
     assert!(
         failures.is_empty(),
@@ -67,11 +74,11 @@ fn graphemes_cluster_correctly() {
 /// Represents a single UAX #29 grapheme break rule.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum GraphemeRule {
-    GB1,   // sot + Any
-    GB2,   // Any + eot
+    GB1,   // sot - Any
+    GB2,   // Any - eot
     GB3,   // CR + LF
-    GB4,   // Control + Any
-    GB5,   // Any + Control
+    GB4,   // Control - Any
+    GB5,   // Any - Control
     GB6,   // L + (L | V | LV | LVT)
     GB7,   // (LV | V) + (V | T)
     GB8,   // (LVT | T) + T
@@ -82,7 +89,7 @@ enum GraphemeRule {
     GB11,  // ExtPict Extend* ZWJ + ExtPict
     GB12,  // sot (RI RI)* RI + RI
     GB13,  // [^RI] (RI RI)* RI + RI
-    GB999, // Any + Any
+    GB999, // Any - Any
 }
 
 impl GraphemeRule {
@@ -112,11 +119,11 @@ impl GraphemeRule {
     /// Human-readable rule description.
     fn describe(&self) -> &'static str {
         match self {
-            Self::GB1   => "[GB1]   sot + Any",
-            Self::GB2   => "[GB2]   Any + eot",
+            Self::GB1   => "[GB1]   sot - Any",
+            Self::GB2   => "[GB2]   Any - eot",
             Self::GB3   => "[GB3]   CR + LF",
-            Self::GB4   => "[GB4]   Control + Any",
-            Self::GB5   => "[GB5]   Any + Control",
+            Self::GB4   => "[GB4]   Control - Any",
+            Self::GB5   => "[GB5]   Any - Control",
             Self::GB6   => "[GB6]   L + (L | V | LV | LVT)",
             Self::GB7   => "[GB7]   (LV | V) + (V | T)",
             Self::GB8   => "[GB8]   (LVT | T) + T",
@@ -127,13 +134,14 @@ impl GraphemeRule {
             Self::GB11  => "[GB11]  ExtPict Extend* ZWJ + ExtPict",
             Self::GB12  => "[GB12]  sot (RI RI)* RI + RI",
             Self::GB13  => "[GB13]  [^RI] (RI RI)* RI + RI",
-            Self::GB999 => "[GB999] Any + Any",
+            Self::GB999 => "[GB999] Any - Any",
         }
     }
 }
 
 // ~~~~~ RULE EXTRACTOR ~~~~~
 
+/// Extracts rules in the format `[1.0]` from a comment string.
 struct RuleExtractor<'a> {
     bytes: &'a [u8],
     pos:   usize,
@@ -166,7 +174,7 @@ impl<'a> Iterator for RuleExtractor<'a> {
     }
 }
 
-// ~~~~~ TEST CASE ~~~~~
+// ~~~~~ TEST CASE + FAILURE ~~~~~
 
 /// Represents a parsed test case from GraphemeBreakTest.txt
 #[derive(Clone, Debug, PartialEq)]
@@ -175,13 +183,11 @@ struct TestCase {
     scalars: Vec<u32>,
     /// Expected grapheme break positions.
     breaks: Vec<usize>,
-    /// Test file comment (for debugging).
+    /// Index-based break position rules.
     rules: Vec<GraphemeRule>,
     /// Line number in test file.
     line: usize,
 }
-
-// ~~~~~ TEST CASE FAILURE ~~~~~
 
 /// Failure state for any `TestCase`.
 #[derive(Debug)]
@@ -228,12 +234,17 @@ impl TestCaseFailure {
 
 /// Ingests a single line from `GraphemeBreakTests.txt` and converts it into a usable `TestCase`.
 fn parse_test(line: &str, num: usize) -> Option<TestCase> {
+
+    // ..... read line .....
+
     if line.is_empty() || line.starts_with('#') { return None; }
 
     let (test, comment) = match line.split_once('#') {
         Some((t, c)) => (t.trim(), c.trim()),
         None => return None,
     };
+
+    // ..... build case .....
 
     let mut scalars = Vec::new();
     let mut breaks  = Vec::new();
@@ -263,6 +274,8 @@ fn parse_test(line: &str, num: usize) -> Option<TestCase> {
 
     if scalars.is_empty() { return None; }
 
+    // ..... convert rules .....
+
     let mut rules: Vec<GraphemeRule> = Vec::new();
 
     for rule in extract_rules(comment) {
@@ -270,6 +283,8 @@ fn parse_test(line: &str, num: usize) -> Option<TestCase> {
     }
 
     if rules.len() != scalars.len() + 1 { return None; }
+
+    // ..... export case .....
 
     Some(TestCase {
         scalars,
@@ -281,11 +296,16 @@ fn parse_test(line: &str, num: usize) -> Option<TestCase> {
 
 /// Runs a `TestCase` and returns any failures.
 fn run_test(test: &TestCase) -> Result<(), TestCaseFailure> {
+
+    // ..... build test string .....
+
     let mut text = String::new();
 
     for scalar in &test.scalars {
         if let Some(c) = char::from_u32(*scalar) { text.push(c); }
     }
+
+    // ..... split graphemes .....
 
     let mut breaks = Vec::new();
     let mut offset = 0;
@@ -296,6 +316,8 @@ fn run_test(test: &TestCase) -> Result<(), TestCaseFailure> {
     }
 
     breaks.push(offset);
+
+    // ..... compare results .....
 
     if test.breaks != breaks {
         let violations = find_violations(&test.breaks, &breaks);
@@ -319,11 +341,7 @@ fn run_test(test: &TestCase) -> Result<(), TestCaseFailure> {
 /// Extracts the expected test case count from `GraphemeBreakTest.txt`.
 fn extract_case_count(data: &str) -> Option<usize> {
     data.lines()
-        .find_map(|l| {
-            l.trim()
-                .strip_prefix("# Lines:")
-                .and_then(|r| r.trim().parse().ok())
-        })
+        .find_map(|l| { l.trim().strip_prefix("# Lines:").and_then(|r| r.trim().parse().ok()) })
 }
 
 /// Iterator over grapheme break rules in test comments.
@@ -335,13 +353,11 @@ fn extract_rules(comment: &str) -> RuleExtractor<'_> {
 fn find_violations(expected: &[usize], actual: &[usize]) -> Vec<usize> {
     let mut violations = Vec::new();
 
-    // Find unexpected extra breaks
-    for &pos in actual {
+    for &pos in actual { // find extra breaks
         if !expected.contains(&pos) { violations.push(pos); }
     }
 
-    // Find missing breaks
-    for &pos in expected {
+    for &pos in expected { // find missing breaks
         if !actual.contains(&pos) { violations.push(pos); }
     }
 

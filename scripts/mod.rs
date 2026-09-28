@@ -11,4 +11,6 @@
 // [[    ENVIRONMENT    ]]
 // ~~~~~~~~~~~~~~~~~~~~~~~
 
+mod common;
+
 pub mod uax29g;

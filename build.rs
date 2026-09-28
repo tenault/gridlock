@@ -29,6 +29,7 @@ fn main() {
     println!("cargo::rerun-if-changed=data/");
     println!("cargo::rerun-if-changed=scripts/");
     println!("cargo::rerun-if-changed=templates/");
+    println!("cargo::rerun-if-changed=src/unicode/symbols/");
     println!("cargo::rerun-if-changed=Cargo.toml");
 
     // ..... generate symbol files .....

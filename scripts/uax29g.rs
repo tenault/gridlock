@@ -13,6 +13,8 @@
 
 use std::fs;
 
+use super::common::*;
+
 
 // ~~~~~~~~~~~~~~~~~~~~~
 // [[    GENERATOR    ]]
@@ -23,8 +25,7 @@ pub fn generate() {
 
     // ..... read data .....
 
-    let template = fs::read_to_string("templates/uax29g.rs")
-        .unwrap_or_else(|e| panic!("Failed to read template: {}", e));
+    let template = read_file("templates/uax29g.rs");
 
     let files = &[
         "data/unicode/DerivedCoreProperties.txt",
@@ -34,36 +35,26 @@ pub fn generate() {
 
     // ..... ingest entries .....
 
+    let mut ascii: [&str; 256] = ["O"; 256];
     let mut graphs: Vec<(u32, u32, &str)> = Vec::new();
-    let mut ascii:   [&str; 256] = ["O"; 256];
     let mut linkers: Vec<u32> = Vec::new();
 
     for file in files {
-        let content = fs::read_to_string(&file)
-            .unwrap_or_else(|e| panic!("Failed to read {}: {}", file, e));
+        let content = read_file(&file);
 
         for line in content.lines() {
             let line = line.trim();
-            if line.is_empty() || line.starts_with('#') || line.starts_with('@') { continue; }
+            if line.is_empty() || line.starts_with('#') { continue; }
 
+            // parse line
             let mut parts = line.split(" ; ");
             let code_half = parts.next().unwrap_or("").trim();
             let prop_half = parts.next().unwrap_or("").trim();
-
-            let prop = prop_half.split('#').next().unwrap_or("").trim(); // drop comments
+            let prop      = prop_half.split('#').next().unwrap_or("").trim(); // drop comments
 
             if prop.is_empty() || code_half.is_empty() { continue; }
 
-            let (start, end) = if let Some((lo, hi)) = code_half.split_once("..") {
-                (
-                    u32::from_str_radix(lo.trim(), 16).expect("bad hex"),
-                    u32::from_str_radix(hi.trim(), 16).expect("bad hex"),
-                )
-            } else {
-                let v = u32::from_str_radix(code_half, 16).expect("bad hex");
-                (v, v)
-            };
-
+            // get variant
             let variant = match prop {
                 "Prepend" => "P",
                 "CR" => "CR",
@@ -80,6 +71,17 @@ pub fn generate() {
                 "InCB; Linker" => "IL",
                 "InCB; Consonant" => "IC",
                 _ => continue,
+            };
+
+            // get range
+            let (start, end) = if let Some((lo, hi)) = code_half.split_once("..") {
+                (
+                    u32::from_str_radix(lo.trim(), 16).expect("bad hex"),
+                    u32::from_str_radix(hi.trim(), 16).expect("bad hex"),
+                )
+            } else {
+                let v = u32::from_str_radix(code_half, 16).expect("bad hex");
+                (v, v)
             };
 
             // extract ascii graphs
@@ -141,9 +143,7 @@ pub fn generate() {
     let formatted_ascii = export(ascii, 16, indent_ascii);
 
     let formatted_linkers = export(
-        linkers.iter().map(|&v| format!("0x{:04x}", v)),
-        4,
-        indent_linkers,
+        linkers.iter().map(|&v| format!("{:#06x}", v)), 4, indent_linkers,
     );
 
     let formatted_peeks = export(
@@ -182,52 +182,4 @@ pub fn generate() {
         "Read {} entries; merged & wrote {} entries to symbols.rs",
         graphs.len(), merged.len()
     );
-}
-
-
-// ~~~~~~~~~~~~~~~~~~~
-// [[    UTILITY    ]]
-// ~~~~~~~~~~~~~~~~~~~
-
-fn export<I, S>(data: I, cols: usize, indent: usize) -> String
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    let data: Vec<S> = data.into_iter().collect();
-    if data.is_empty() { return String::new(); }
-
-    let width = data.iter().map(|v| v.as_ref().len()).max().unwrap_or(0);
-
-    let mut out = String::new();
-
-    for (i, v) in data.iter().enumerate() {
-        let v = v.as_ref();
-
-        if i != 0 && i % cols == 0 {
-            for _ in 0..indent { out.push(' '); }
-        }
-
-        out.push_str(v);
-        out.push(',');
-
-        if (i + 1) < data.len() {
-            if (i + 1) % cols != 0 {
-                for _ in 0..(width - v.len() + 1) { out.push(' '); }
-            } else {
-                out.push('\n')
-            }
-        }
-    }
-
-    out
-}
-
-fn extract_indent(source: &str, key: &str) -> usize {
-    for line in source.lines() {
-        if line.contains(key) {
-            return line.len() - line.trim_start().len();
-        }
-    }
-    0
 }
