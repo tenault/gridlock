@@ -21,26 +21,41 @@ use crate::unicode::symbols::uax29g::*;
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// Iterator over grapheme clusters in a string.
+///
+/// Conforms to `UAX29-C1-1` by default, or optionally `UAX29-C1-2` with `old()`.
 pub struct GraphemeSplitter<'a> {
     bytes: &'a [u8],
-    pos:   usize,
-    range: GraphRange,
-    last:  Option<UnicodeScalar>,
+    pos:    usize,
+    range:  GraphRange,
+    last:   Option<UnicodeScalar>,
+    legacy: bool,
 }
 
 impl<'a> GraphemeSplitter<'a> {
 
-    // ,,,,,,,,,,,,,,,,,,,,,
-    // [    constructor    ]
-    // '''''''''''''''''''''
+    // ,,,,,,,,,,,,,,,,,,,,,,
+    // [    constructors    ]
+    // ''''''''''''''''''''''
 
     #[inline]
     pub fn new(text: &'a str) -> Self {
         Self {
-            bytes: text.as_bytes(),
-            pos:   0,
-            range: GraphRange { start: 0, end: 0, graph: GraphType::O },
-            last:  None,
+            bytes:  text.as_bytes(),
+            pos:    0,
+            range:  GraphRange { start: 0, end: 0, graph: GraphType::O },
+            last:   None,
+            legacy: false,
+        }
+    }
+
+    #[inline]
+    pub fn old(text: &'a str) -> Self {
+        Self {
+            bytes:  text.as_bytes(),
+            pos:    0,
+            range:  GraphRange { start: 0, end: 0, graph: GraphType::O },
+            last:   None,
+            legacy: true,
         }
     }
 
@@ -148,6 +163,7 @@ impl<'a> GraphemeSplitter<'a> {
         previous: &UnicodeScalar,
         current:  &UnicodeScalar,
         state:    &ClusterState,
+        legacy:   bool,
     ) -> bool {
         use GraphType::*;
 
@@ -162,6 +178,10 @@ impl<'a> GraphemeSplitter<'a> {
         // ..... GB5 -- Any ÷ (Control | CR | LF) .....
 
         if matches!(current.graph,  C | CR | LF) { return true; }
+
+        // ..... GB11 -- ExtPict Extend* ZWJ × ExtPict .....
+
+        if state.joining && current.graph == EP { return false; }
 
         // ..... GB9 -- Any × (Extend | ZWJ)  .....
 
@@ -181,19 +201,15 @@ impl<'a> GraphemeSplitter<'a> {
 
         // ..... GB9a -- Any × SpacingMark .....
 
-        if current.graph == SM { return false; }
+        if current.graph == SM { return legacy; }
 
         // ..... GB9b -- Prepend × Any .....
 
-        if previous.graph == P { return false; }
-
-        // ..... GB11 -- ExtPict Extend* ZWJ × ExtPict .....
-
-        if state.joining && current.graph == EP { return false; }
+        if previous.graph == P { return legacy; }
 
         // ..... GB9c -- ConjunctLinker ConjunctExtender* × LinkingConsonant .....
 
-        if current.graph == IC && state.linking { return false; }
+        if current.graph == IC && state.linking { return legacy; }
 
         // ..... GB12/13 -- [^RI] (RI RI)* RI × RI .....
 
@@ -228,7 +244,7 @@ impl<'a> Iterator for GraphemeSplitter<'a> {
 
             let next = self.extract(self.pos);
 
-            if self.is_boundary(&current, &next, &state) {
+            if self.is_boundary(&current, &next, &state, self.legacy) {
                 self.last = Some(next);
                 break;
             }
@@ -252,6 +268,34 @@ impl<'a> Iterator for GraphemeSplitter<'a> {
         (usize::from(remaining > 0), Some(remaining))
     }
 }
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~
+// [[    CONVENIENCE    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~
+
+/// Iterator over grapheme clusters in a given string.
+///
+/// Conforms to `UAX29-C1-1`, segmenting into `GraphemeCluster`.
+///
+/// ```rust,no_run
+/// use gridlock::unicode::graphemes;
+///
+/// for cluster in graphemes("héllo") { /* ... */ }
+/// ```
+pub fn graphemes(text: &str) -> GraphemeSplitter<'_> { GraphemeSplitter::new(text) }
+
+/// Iterator over legacy grapheme clusters in a given string.
+///
+/// Conforms to `UAX29-C1-2`, segmenting into `GraphemeCluster`. Unless you have a specific need for
+/// clusters which do not conform to GB9a, GB9b, and GB9c, it's best to use `graphemes()` instead.
+///
+/// ```rust,no_run
+/// use gridlock::unicode::legacy_graphemes;
+///
+/// for cluster in legacy_graphemes("héllo") { /* ... */ }
+/// ```
+pub fn legacy_graphemes(text: &str) -> GraphemeSplitter<'_> { GraphemeSplitter::old(text) }
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -431,15 +475,6 @@ impl<'a> Iterator for ScalarIterator<'a> {
 // ~~~~~~~~~~~~~~~~~~~
 // [[    UTILITY    ]]
 // ~~~~~~~~~~~~~~~~~~~
-
-// ~~~~~ SEGMENTATION ~~~~~
-
-/// ```rust,no_run
-/// use gridlock::unicode::graphemes;
-///
-/// for cluster in graphemes("héllo") { /* ... */ }
-/// ```
-pub fn graphemes(text: &str) -> GraphemeSplitter<'_> { GraphemeSplitter::new(text) }
 
 // ~~~~~ UNICODE ~~~~~
 
