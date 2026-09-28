@@ -1,5 +1,5 @@
 //
-// gridlock ........................ io/mod.rs
+// gridlock .............. unicode/sentence.rs
 // copyright (c) 2026 malakai smith (@tenault)
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -7,10 +7,3 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0.
 //
 
-// ~~~~~~~~~~~~~~~~~~~~~~~
-// [[    ENVIRONMENT    ]]
-// ~~~~~~~~~~~~~~~~~~~~~~~
-
-pub(crate) mod escape;
-pub(crate) mod signal;
-pub(crate) mod tty;

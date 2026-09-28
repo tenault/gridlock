@@ -1,5 +1,5 @@
 //
-// gridlock ........................ io/mod.rs
+// gridlock ...................... cell/mod.rs
 // copyright (c) 2026 malakai smith (@tenault)
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -11,6 +11,9 @@
 // [[    ENVIRONMENT    ]]
 // ~~~~~~~~~~~~~~~~~~~~~~~
 
-pub(crate) mod escape;
-pub(crate) mod signal;
-pub(crate) mod tty;
+pub(crate) mod color;
+pub(crate) mod cursor;
+pub(crate) mod style;
+
+pub use color::Color;
+pub use style::TerminalStyle;

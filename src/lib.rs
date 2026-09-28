@@ -1,4 +1,4 @@
-// ╭────────────────────────────────────────────────────────────────────lib.rs─╮
+// ╭───────────────────────────────────────────────────────────────────────────╮
 // │                                                                           │
 // │                                ┏━┓    ┏━━┓              ┏━┓               │
 // │                                ┃ ┃    ┗┓ ┃              ┃ ┃               │
@@ -72,16 +72,28 @@
 //!
 //! ```text
 //! lib.rs
-//! └── io/
-//!     ├── color.rs    // Color jazz (ANSI, 256, RGB)
-//!     ├── cursor.rs   // Virtual cursor tracking
-//!     ├── error.rs    // Error types
-//!     ├── escape.rs   // ANSI escape generation
-//!     ├── mod.rs      // Module exports
-//!     ├── signal.rs   // Signal handlers
-//!     ├── style.rs    // Text styling (SGR)
-//!     ├── terminal.rs // Main terminal interface
-//!     └── tty.rs      // Low-level TTY operations
+//! ├── cell/
+//! │   ├── mod.rs          // Module exports
+//! │   ├── color.rs        // Color jazz (ANSI, 256, RGB)
+//! │   ├── cursor.rs       // Virtual cursor tracking
+//! │   └── style.rs        // Text styling (SGR)
+//! ├── core/
+//! │   ├── mod.rs          // Module exports
+//! │   ├── error.rs        // Error types
+//! │   └── terminal.rs     // Main terminal interface
+//! ├── io/
+//! │   ├── mod.rs          // Module exports
+//! │   ├── escape.rs       // ANSI escape generation
+//! │   ├── signal.rs       // Signal handlers
+//! │   └── tty.rs          // Low-level TTY operations
+//! └── unicode/
+//!     ├── symbols/
+//!     │   ├── mod.rs      // Module exports
+//!     │   └── uax29.rs    // Support tables for UAX#29 conformance.
+//!     ├── mod.rs          // Module exports
+//!     ├── grapheme.rs     // Grapheme cluster segmentation (UAX #29)
+//!     ├── sentence.rs     // Word boundary detection       (UAX #29)
+//!     └── word.rs         // Sentence boundary detection   (UAX #29)
 //! ```
 //!
 //! ## Platforms
@@ -96,11 +108,14 @@
 //!
 //! [`TerminalError::IllegalGuard`]: crate::TerminalError::IllegalGuard
 
-// ╭───────────────────╮
-// │    ENVIRONMENT    │
-// ╰───────────────────╯
+// ~~~~~~~~~~~~~~~~~~~~~~~
+// [[    ENVIRONMENT    ]]
+// ~~~~~~~~~~~~~~~~~~~~~~~
 
-/// Core I/O module for terminal operation.
+pub mod cell;
+pub mod core;
 pub mod io;
+pub mod unicode;
 
-pub use io::{Color, Terminal, TerminalError, TerminalStyle};
+pub use cell::{Color, TerminalStyle};
+pub use core::{Terminal, TerminalError};
