@@ -587,7 +587,7 @@ mod boundary_tests {
         let state = ClusterState::new();
 
         let splitter = GraphemeSplitter::new("");
-        assert!(!splitter.is_boundary(&prev, &next, &state));
+        assert!(!splitter.is_boundary(&prev, &next, &state, false));
     }
 
     #[test]
@@ -597,7 +597,7 @@ mod boundary_tests {
         let state = ClusterState::new();
 
         let splitter = GraphemeSplitter::new("");
-        assert!(splitter.is_boundary(&prev, &next, &state));
+        assert!(splitter.is_boundary(&prev, &next, &state, false));
     }
 
     #[test]
@@ -607,7 +607,7 @@ mod boundary_tests {
         let state = ClusterState::new();
 
         let splitter = GraphemeSplitter::new("");
-        assert!(!splitter.is_boundary(&prev, &next, &state));
+        assert!(!splitter.is_boundary(&prev, &next, &state, false));
     }
 
     #[test]
@@ -617,7 +617,7 @@ mod boundary_tests {
         let state = ClusterState::new();
 
         let splitter = GraphemeSplitter::new("");
-        assert!(!splitter.is_boundary(&prev, &next, &state));
+        assert!(!splitter.is_boundary(&prev, &next, &state, false));
     }
 
     #[test]
@@ -627,7 +627,7 @@ mod boundary_tests {
         let state = ClusterState::new();
 
         let splitter = GraphemeSplitter::new("");
-        assert!(!splitter.is_boundary(&prev, &next, &state));
+        assert!(!splitter.is_boundary(&prev, &next, &state, false));
     }
 
     #[test]
@@ -640,7 +640,7 @@ mod boundary_tests {
         state.fold(&prev);
 
         let splitter = GraphemeSplitter::new("");
-        assert!(!splitter.is_boundary(&prev, &next, &state));
+        assert!(!splitter.is_boundary(&prev, &next, &state, false));
     }
 
     #[test]
@@ -651,7 +651,7 @@ mod boundary_tests {
         state.fold(&prev);
 
         let splitter = GraphemeSplitter::new("");
-        assert!(!splitter.is_boundary(&prev, &next, &state));
+        assert!(!splitter.is_boundary(&prev, &next, &state, false));
     }
 
 
@@ -664,7 +664,7 @@ mod boundary_tests {
         state.fold(&next);
 
         let splitter = GraphemeSplitter::new("");
-        assert!(splitter.is_boundary(&prev, &next, &state));
+        assert!(splitter.is_boundary(&prev, &next, &state, false));
     }
 }
 
